@@ -1,24 +1,28 @@
 vim.g.mapleader = " "
 
-require("config.lazy")
+local lazypath = vim.fn.stdpath("data")
+if not (vim.uv or vim.loop).fs_stat(lazypath) then
+    local lazyrepo = "https://github.com/folke/lazy.nvim.git"
+    local out = vim.fn.system({ "git", "clone", "--filter=blob:none", "--branch=stable", lazyrepo, lazypath })
+    if vim.v.shell_error ~= 0 then
+        vim.api.nvim_echo({
+            { "Failed to clone lazy.nvim:\n", "ErrorMsg" },
+            { out,                            "WarningMsg" },
+            { "\nPress any key to exit..." },
+        }, true, {})
+        vim.fn.getchar()
+        os.exit(1)
+    end
+end
+vim.opt.rtp:prepend(vim.fn.stdpath("data"))
 
-vim.opt.listchars = { space = "·" }
-vim.opt.list = true
-vim.api.nvim_set_hl(0, "Whitespace", { fg="#252525" })
-vim.cmd[[ highlight Type gui=bold ]]
+require("keymaps")
+require("opts")
+require("term")
+require("run")
 
-vim.keymap.set("i", "<C-c>", "<Esc>")
-vim.opt.guicursor = "n-v-i-c:block-Cursor"
-vim.opt.hls = false
-vim.opt.number = true
-vim.opt.rnu = true
-vim.opt.smartindent = true
-vim.opt.autoindent = true
-vim.opt.expandtab = true
-vim.opt.swapfile = false
-vim.opt.shiftwidth = 4 
-vim.opt.tabstop = 4
-vim.opt.smartcase = true
-vim.opt.showcmd = true
-
-vim.g.c_no_curly_error = true
+vim.cmd("hi LineNr ctermbg=NONE guibg=NONE")
+require("lazy").setup(
+    { import = "plugins" },
+    { change_detection = { notify = false } }
+)
