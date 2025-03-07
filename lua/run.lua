@@ -39,11 +39,11 @@ endfunction
 
 -- The keymap run last command
 -- If the 'run' register is empty we take it from the user
-vim.keymap.set("n", "<leader>;", function()
+vim.keymap.set("n", "<leader>l", function()
     -- Get input from user if the run register is empty
     local cmd = vim.api.nvim_exec2("echo @r", { output = true }).output
     if cmd == "" then
-        vim.ui.input({ prompt = "run: ", completion=("customlist,%s"):format("CompileInputComplete") }, function(new_cmd)
+        vim.ui.input({ prompt = "sh: ", completion=("customlist,%s"):format("CompileInputComplete") }, function(new_cmd)
             if new_cmd == nil then return end
             cmd = new_cmd
             vim.fn.setreg("r", cmd)
@@ -55,8 +55,8 @@ end)
 
 -- The keymap takes command from the user and
 -- puts the command into 'run' register
-vim.keymap.set("n", "<leader>:", function()
-    vim.ui.input({ prompt = "run: ", default = "", completion=("customlist,%s"):format("CompileInputComplete") }, function(new_cmd)
+vim.keymap.set("n", "<leader>;", function()
+    vim.ui.input({ prompt = "sh: ", default = "", completion=("customlist,%s"):format("CompileInputComplete") }, function(new_cmd)
         if new_cmd == nil then return end
         vim.fn.setreg("r", new_cmd)
         run_shell_command(new_cmd)
