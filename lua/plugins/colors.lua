@@ -1,13 +1,5 @@
 return {
     {
-        "vague2k/vague.nvim",
-        config = function()
-            require("vague").setup({
-                transparent = true
-            })
-        end
-    },
-    {
         "echasnovski/mini.base16", version = '*',
         config = function()
             require("mini.base16").setup({
