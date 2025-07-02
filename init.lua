@@ -19,7 +19,7 @@ vim.opt.rtp:prepend(lazypath)
 require("keymaps")
 require("opts")
 require("term")
-require("run")
+require("sh")
 
 vim.cmd("hi LineNr ctermbg=NONE guibg=NONE")
 require("lazy").setup(
