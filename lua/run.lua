@@ -20,9 +20,10 @@ local function run_shell_command(cmd)
     else
         vim.api.nvim_win_set_buf(build_win, build_buffer)
     end
--- Run command
+
+    -- Run command
     vim.api.nvim_win_call(build_win, function()
-        vim.fn.termopen(cmd, { on_stdout = function()end, on_stderr = function()end })
+        vim.fn.jobstart(cmd, { term = true })
         vim.cmd("normal G")
     end)
 end
