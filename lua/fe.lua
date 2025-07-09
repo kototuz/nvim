@@ -98,6 +98,8 @@ function Fe:mark(file_range, as_copy)
 end
 
 function Fe:paste()
+    if self.marks == nil then return end
+
     local command
     if self.marks.copy then
         command = function(src, dst)
@@ -112,6 +114,7 @@ function Fe:paste()
     for _, file_path in pairs(self.marks.file_paths) do
         command(file_path, self.dir)
     end
+    self.marks = nil
 
     Fe:render()
 end
