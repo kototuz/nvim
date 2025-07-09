@@ -158,7 +158,6 @@ end
 
 function Fe:open(path)
     self.buf = vim.api.nvim_create_buf(false, true)
-    vim.api.nvim_set_option_value("syntax", "netrw", { buf = self.buf })
     vim.api.nvim_set_option_value("modifiable", false, { buf = self.buf })
 
     self.show_hidden = false
@@ -168,6 +167,9 @@ function Fe:open(path)
 
     Fe:set_dir(path)
     vim.api.nvim_win_set_buf(0, self.buf)
+
+    vim.cmd "syntax match dir '.\\+/'"
+    vim.cmd "hi def link dir Directory"
 end
 
 -- ========================================
