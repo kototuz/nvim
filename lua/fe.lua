@@ -75,11 +75,12 @@ function Fe:set_dir(path)
 end
 
 function Fe:delete(file_range)
+    if #self.files == 0 then return end
     vim.ui.input({ prompt = "Delete? " }, function(input)
         if input ~= "y" then return end
         for i = file_range.b, file_range.e do
             local file = self.files[i]
-            if file == nil then return end
+            assert(file)
             vim.fs.rm(Fe:path_with(file.name), { recursive = true })
         end
         Fe:render()
@@ -87,10 +88,11 @@ function Fe:delete(file_range)
 end
 
 function Fe:mark(file_range, as_copy)
+    if #self.files == 0 then return end
     self.marks = { copy = as_copy, file_paths = {} }
     for i = file_range.b, file_range.e do
         local file = self.files[i]
-        if file == nil then return end
+        assert(file)
         table.insert(self.marks.file_paths, Fe:path_with(file.name))
     end
 end
@@ -130,8 +132,9 @@ function Fe:create()
 end
 
 function Fe:rename(file_idx)
+    if #self.files == 0 then return end
     local file = self.files[file_idx]
-    if file == nil then return end
+    assert(file)
     vim.ui.input({ prompt = "Rename: ", default = file.name }, function(input)
         if input == nil or input == "" then return end
         vim.fn.rename(Fe:path_with(file.name), Fe:path_with(input))
@@ -144,8 +147,9 @@ function Fe:cd_back()
 end
 
 function Fe:cd(file_idx)
+    if #self.files == 0 then return end
     local file = self.files[file_idx]
-    if file == nil then return end
+    assert(file)
 
     local new_path = Fe:path_with(file.name)
     if file.type ~= "directory" then
