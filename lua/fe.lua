@@ -45,6 +45,7 @@ function Fe:render(mark)
         end
     end
 
+    vim.api.nvim_buf_set_name(self.buf, self.dir)
     vim.api.nvim_set_option_value("modifiable", true, { buf = self.buf })
     vim.api.nvim_buf_set_lines(self.buf, 0, -1, false, filenames)
     vim.api.nvim_set_option_value("modifiable", false, { buf = self.buf })
@@ -201,7 +202,7 @@ end
 -- ========================================
 
 Fe:keymap("n", "h",     function() Fe:cd_back() end)
-Fe:keymap("n", "c",     function() Fe:create() end)
+Fe:keymap("n", "a",     function() Fe:create() end)
 Fe:keymap("n", "p",     function() Fe:paste() end)
 Fe:keymap("n", "i",     function() vim.fn.chdir(Fe.dir) end)
 Fe:keymap("n", "<C-l>", function() Fe:render() end)
