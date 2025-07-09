@@ -1,6 +1,10 @@
 -- FILE EXPLORER - FE
 
-local Fe = {}
+-- ========================================
+-- FE API
+-- ========================================
+
+local Fe = { on_open_actions = {} }
 
 function Fe:render(mark)
     self.files = {}
@@ -46,9 +50,19 @@ function Fe:render(mark)
     vim.api.nvim_set_option_value("modifiable", false, { buf = self.buf })
 end
 
-function range(b, e)
-    if b > e then b, e = e, b end
-    return { b = b, e = e }
+function Fe:keymap(modes, binding, action)
+    table.insert(self.on_open_actions, function(buf)
+        vim.keymap.set(modes, binding, action, { buffer = buf })
+    end)
+end
+
+function Fe:autocmd(event, callback)
+    table.insert(self.on_open_actions, function(buf)
+        vim.api.nvim_create_autocmd(event, {
+            buffer = buf,
+            callback = callback
+        })
+    end)
 end
 
 function Fe:path_with(path)
@@ -142,76 +156,79 @@ function Fe:cd(file_idx)
     Fe:set_dir(new_path)
 end
 
-function Fe:open(buf, path)
-    self.buf = buf
+function Fe:open(path)
+    self.buf = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_set_option_value("syntax", "netrw", { buf = self.buf })
+    vim.api.nvim_set_option_value("modifiable", false, { buf = self.buf })
+
     self.show_hidden = false
+    for _, action in ipairs(self.on_open_actions) do
+        action(self.buf)
+    end
+
     Fe:set_dir(path)
-    vim.api.nvim_set_option_value("syntax", "netrw", { buf = buf })
-    vim.api.nvim_set_option_value("modifiable", false, { buf = buf })
     vim.api.nvim_win_set_buf(0, self.buf)
 end
 
-vim.api.nvim_create_user_command("Fe", function()
-    local buf = vim.api.nvim_create_buf(false, true)
+-- ========================================
+-- UTILS
+-- ========================================
 
-    vim.keymap.set("n", "h", function() Fe:cd_back() end, { buffer = buf })
+function range(b, e)
+    if b > e then b, e = e, b end
+    return { b = b, e = e }
+end
 
-    vim.keymap.set("n", "l", function() 
-        local c = vim.api.nvim_win_get_cursor(0)
-        Fe:cd(c[1])
-    end, { buffer = buf})
+function selection_range()
+    return range(vim.fn.getpos("v")[2], vim.fn.getpos(".")[2])
+end
 
-    vim.keymap.set("n", ".", function()
-        Fe.show_hidden = not Fe.show_hidden
-        Fe:render()
-    end, { buffer = buf })
+function cursor_row()
+    return vim.fn.getpos(".")[2]
+end
 
-    vim.keymap.set({ "n", "v" }, "d", function() 
-        Fe:delete(range(vim.fn.getpos("v")[2], vim.fn.getpos(".")[2]))
-        vim.api.nvim_input("<Esc>")
-    end, { buffer = buf})
+-- ========================================
+-- SETUP
+-- ========================================
 
-    vim.keymap.set("n", "a", function()
-        Fe:create()
-    end, { buffer = buf })
+Fe:keymap("n", "h",     function() Fe:cd_back() end)
+Fe:keymap("n", "c",     function() Fe:create() end)
+Fe:keymap("n", "p",     function() Fe:paste() end)
+Fe:keymap("n", "i",     function() vim.fn.chdir(Fe.dir) end)
+Fe:keymap("n", "<C-l>", function() Fe:render() end)
+Fe:keymap("n", "l",     function() Fe:cd(cursor_row()) end)
+Fe:keymap("n", "r",     function() Fe:rename(cursor_row()) end)
 
-    vim.keymap.set("n", "r", function()
-        local c = vim.api.nvim_win_get_cursor(0)
-        Fe:rename(c[1])
-    end, { buffer = buf })
+Fe:keymap("n", ".", function()
+    Fe.show_hidden = not Fe.show_hidden
+    Fe:render()
+end)
 
-    vim.api.nvim_create_autocmd("TextYankPost", {
-        group = vim.api.nvim_create_augroup("Copy files", { clear = true }),
-        buffer = buf,
-        callback = function(args)
-            local event = vim.api.nvim_get_vvar("event")
-            if event.operator ~= 'y' then return end
-            Fe:mark(
-                range(vim.fn.getpos("'[")[2], vim.fn.getpos("']")[2]),
-                true
-            )
+Fe:keymap({ "n", "v" }, "d", function() 
+    Fe:delete(selection_range())
+    vim.api.nvim_input("<Esc>")
+end)
+
+Fe:keymap({ "n", "v" }, "m", function() 
+    Fe:mark(selection_range(), false)
+    vim.api.nvim_input("<Esc>")
+end)
+
+Fe:autocmd("TextYankPost", function()
+    local event = vim.api.nvim_get_vvar("event")
+    if event.operator ~= 'y' then return end
+    Fe:mark(range(vim.fn.getpos("'[")[2], vim.fn.getpos("']")[2]), true)
+end)
+
+vim.api.nvim_create_autocmd({ "VimEnter", "BufEnter" }, {
+    group = vim.api.nvim_create_augroup("Fe", { clear = true }),
+    callback = function()
+        local buf = vim.api.nvim_win_get_buf(0)
+        local path = vim.api.nvim_buf_get_name(buf)
+        local stat = vim.uv.fs_stat(path)
+        if stat ~= nil and stat.type == "directory" then
+            vim.api.nvim_buf_delete(buf, { force = true })
+            Fe:open(path)
         end
-    })
-
-    vim.keymap.set({ "n", "v" }, "m", function() 
-        Fe:mark(
-            range(vim.fn.getpos("v")[2], vim.fn.getpos(".")[2]),
-            false
-        )
-        vim.api.nvim_input("<Esc>")
-    end, { buffer = buf})
-
-    vim.keymap.set("n", "p", function()
-        Fe:paste()
-    end, { buffer = buf })
-
-    vim.keymap.set("n", "i", function()
-        vim.fn.chdir(Fe.dir)
-    end, { buffer = buf })
-
-    vim.keymap.set("n", "<C-l>", function()
-        Fe:render()
-    end, { buffer = buf })
-
-    Fe:open(buf, vim.fn.getcwd())
-end, {})
+    end
+})
