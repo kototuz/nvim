@@ -72,20 +72,13 @@ function Fe:delete(file_range)
     end)
 end
 
-function Fe:mark(file_range, as_copy, mark_symbol)
+function Fe:mark(file_range, as_copy)
     self.marks = { copy = as_copy, file_paths = {} }
     for i = file_range.b, file_range.e do
         local file = self.files[i]
         if file == nil then return end
         table.insert(self.marks.file_paths, Fe:path_with(file.name))
     end
-
-    local mark = {
-        file_range = file_range,
-        symbol = mark_symbol
-    }
-
-    Fe:render(mark)
 end
 
 function Fe:paste()
@@ -187,18 +180,23 @@ vim.api.nvim_create_user_command("Fe", function()
         Fe:rename(c[1])
     end, { buffer = buf })
 
-    vim.keymap.set({ "n", "v" }, "c", function() 
-        Fe:mark(
-            range(vim.fn.getpos("v")[2], vim.fn.getpos(".")[2]),
-            true, "*"
-        )
-        vim.api.nvim_input("<Esc>")
-    end, { buffer = buf})
+    vim.api.nvim_create_autocmd("TextYankPost", {
+        group = vim.api.nvim_create_augroup("Copy files", { clear = true }),
+        buffer = buf,
+        callback = function(args)
+            local event = vim.api.nvim_get_vvar("event")
+            if event.operator ~= 'y' then return end
+            Fe:mark(
+                range(vim.fn.getpos("'[")[2], vim.fn.getpos("']")[2]),
+                true
+            )
+        end
+    })
 
     vim.keymap.set({ "n", "v" }, "m", function() 
         Fe:mark(
             range(vim.fn.getpos("v")[2], vim.fn.getpos(".")[2]),
-            false, "*"
+            false
         )
         vim.api.nvim_input("<Esc>")
     end, { buffer = buf})
