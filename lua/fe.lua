@@ -198,6 +198,35 @@ function cursor_row()
 end
 
 -- ========================================
+-- USING FE TO OPEN DIRECTORIES
+-- ========================================
+
+local group = vim.api.nvim_create_augroup("Fe", { clear = true })
+
+vim.api.nvim_create_autocmd("BufEnter", {
+    group = group,
+    callback = function()
+        local buf = vim.api.nvim_win_get_buf(0)
+        local path = vim.api.nvim_buf_get_name(buf)
+        local stat = vim.uv.fs_stat(path)
+        if stat ~= nil and stat.type == "directory" then
+            vim.api.nvim_buf_delete(buf, { force = true })
+            Fe:open(path)
+        end
+    end
+})
+
+vim.api.nvim_create_autocmd("VimEnter", {
+    group = group,
+    callback = function()
+        local is_valid = vim.api.nvim_buf_is_valid(2)
+        if is_valid then
+            vim.api.nvim_buf_delete(2, { force = true })
+        end
+    end
+})
+
+-- ========================================
 -- SETUP
 -- ========================================
 
@@ -229,16 +258,3 @@ Fe:autocmd("TextYankPost", function()
     if event.operator ~= 'y' then return end
     Fe:mark(range(vim.fn.getpos("'[")[2], vim.fn.getpos("']")[2]), true)
 end)
-
-vim.api.nvim_create_autocmd({ "VimEnter", "BufEnter" }, {
-    group = vim.api.nvim_create_augroup("Fe", { clear = true }),
-    callback = function()
-        local buf = vim.api.nvim_win_get_buf(0)
-        local path = vim.api.nvim_buf_get_name(buf)
-        local stat = vim.uv.fs_stat(path)
-        if stat ~= nil and stat.type == "directory" then
-            vim.api.nvim_buf_delete(buf, { force = true })
-            Fe:open(path)
-        end
-    end
-})
