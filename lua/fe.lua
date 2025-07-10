@@ -167,6 +167,8 @@ end
 function Fe:open(path)
     self.buf = vim.api.nvim_create_buf(false, true)
     vim.api.nvim_set_option_value("modifiable", false, { buf = self.buf })
+    vim.api.nvim_set_option_value("buftype", "nowrite", { buf = self.buf })
+    vim.api.nvim_set_option_value("bufhidden", "delete", { buf = self.buf })
 
     self.show_hidden = false
     for _, action in ipairs(self.on_open_actions) do
