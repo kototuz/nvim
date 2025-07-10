@@ -298,6 +298,10 @@ Fe:keymap("n", "q", function()
     vim.api.nvim_buf_delete(Fe.buf, { force = true })
 end)
 
+Fe:keymap("n", ";", function()
+    Fe:set_dir(vim.fn.getcwd())
+end)
+
 -- ========================================
 -- KEYMAPS OUTSIDE FE
 -- ========================================
