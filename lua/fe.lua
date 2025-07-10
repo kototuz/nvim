@@ -1,6 +1,42 @@
 -- FILE EXPLORER - FE
 
 -- ========================================
+-- UTILS
+-- ========================================
+
+function range(b, e)
+    if b > e then b, e = e, b end
+    return { b = b, e = e }
+end
+
+function selection_range()
+    return range(vim.fn.getpos("v")[2], vim.fn.getpos(".")[2])
+end
+
+function cursor_row()
+    return vim.fn.getpos(".")[2]
+end
+
+local KB = 1024
+local MB = KB^2
+local GB = KB^3
+function format_size(size)
+    local formats = {
+        { size/GB, "G" },
+        { size/MB, "M" },
+        { size/KB, "K" },
+    }
+
+    for _, f in ipairs(formats) do
+        if math.floor(f[1]) > 0 then
+            return string.format("%.1f%s", f[1], f[2])
+        end
+    end
+
+    return tostring(size) .. "B"
+end
+
+-- ========================================
 -- FE API
 -- ========================================
 
@@ -15,10 +51,28 @@ function Fe:render(mark)
         })
     end
 
-    if not self.show_hidden then
+    local render_file_fn
+    if not self.verbose_mode then
         self.files = vim.fn.filter(self.files, function(_, file)
             return file.name:sub(1, 1) ~= '.'
         end)
+
+        render_file_fn = function(file)
+            if file.type == "directory" then
+                return file.name .. "/"
+            else
+                return file.name
+            end
+        end
+    else
+        render_file_fn = function(file)
+            local file_size = vim.fn.getfsize(Fe:path_with(file.name))
+            local res = format_size(file_size) .. " " .. file.name
+            if file.type == "directory" then
+                res = res .. "/"
+            end
+            return res
+        end
     end
 
     self.files = vim.fn.sort(self.files, function(lhs, rhs)
@@ -32,11 +86,7 @@ function Fe:render(mark)
     end)
 
     local filenames = vim.fn.map(self.files, function(_, file)
-        if file.type == "directory" then
-            return file.name .. "/"
-        else
-            return file.name
-        end
+        return render_file_fn(file)
     end)
 
     if mark ~= nil then
@@ -170,7 +220,7 @@ function Fe:open(path)
     vim.api.nvim_set_option_value("buftype", "nowrite", { buf = self.buf })
     vim.api.nvim_set_option_value("bufhidden", "delete", { buf = self.buf })
 
-    self.show_hidden = false
+    self.verbose_mode = false
     for _, action in ipairs(self.on_open_actions) do
         action(self.buf)
     end
@@ -183,24 +233,7 @@ function Fe:open(path)
 end
 
 -- ========================================
--- UTILS
--- ========================================
-
-function range(b, e)
-    if b > e then b, e = e, b end
-    return { b = b, e = e }
-end
-
-function selection_range()
-    return range(vim.fn.getpos("v")[2], vim.fn.getpos(".")[2])
-end
-
-function cursor_row()
-    return vim.fn.getpos(".")[2]
-end
-
--- ========================================
--- USING FE TO OPEN DIRECTORIES
+-- USE FE TO OPEN DIRECTORIES
 -- ========================================
 
 local group = vim.api.nvim_create_augroup("Fe", { clear = true })
@@ -241,7 +274,7 @@ Fe:keymap("n", "l",     function() Fe:cd(cursor_row()) end)
 Fe:keymap("n", "r",     function() Fe:rename(cursor_row()) end)
 
 Fe:keymap("n", ".", function()
-    Fe.show_hidden = not Fe.show_hidden
+    Fe.verbose_mode = not Fe.verbose_mode
     Fe:render()
 end)
 
