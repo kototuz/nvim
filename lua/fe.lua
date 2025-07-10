@@ -227,7 +227,7 @@ vim.api.nvim_create_autocmd("VimEnter", {
 })
 
 -- ========================================
--- SETUP
+-- KEYMAPS INSIDE FE
 -- ========================================
 
 Fe:keymap("n", "h",     function() Fe:cd_back() end)
@@ -257,4 +257,17 @@ Fe:autocmd("TextYankPost", function()
     local event = vim.api.nvim_get_vvar("event")
     if event.operator ~= 'y' then return end
     Fe:mark(range(vim.fn.getpos("'[")[2], vim.fn.getpos("']")[2]), true)
+end)
+
+Fe:keymap("n", "q", function()
+    vim.api.nvim_buf_delete(Fe.buf, { force = true })
+end)
+
+-- ========================================
+-- KEYMAPS OUTSIDE FE
+-- ========================================
+
+vim.keymap.set("n", "<leader>p", function()
+    local dir = vim.fs.dirname(vim.api.nvim_buf_get_name(0))
+    Fe:open(dir)
 end)
