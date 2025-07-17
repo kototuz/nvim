@@ -236,6 +236,9 @@ end
 -- USE FE TO OPEN DIRECTORIES
 -- ========================================
 
+-- Delete netrw stuff
+vim.api.nvim_del_augroup_by_name("FileExplorer");
+
 local group = vim.api.nvim_create_augroup("Fe", { clear = true })
 
 vim.api.nvim_create_autocmd("BufEnter", {
