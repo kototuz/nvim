@@ -1,5 +1,6 @@
 local build_buffer = nil
-local build_win = nil
+local build_win    = nil
+local last_cmd     = nil
 
 local function run_shell_command(cmd)
     -- Delete old buffer
@@ -42,24 +43,23 @@ endfunction
 -- If the 'run' register is empty we take it from the user
 vim.keymap.set("n", "<leader>l", function()
     -- Get input from user if the run register is empty
-    local cmd = vim.api.nvim_exec2("echo @r", { output = true }).output
-    if cmd == "" then
+    if last_cmd == nil then
         vim.ui.input({ prompt = "sh: ", completion=("customlist,%s"):format("CompileInputComplete") }, function(new_cmd)
-            if new_cmd == nil then return end
-            cmd = new_cmd
-            vim.fn.setreg("r", cmd)
+            if new_cmd == nil or new_cmd == "" then return end
+            last_cmd = new_cmd
+            run_shell_command(new_cmd)
         end)
-        if cmd == "" then return end
+    else
+        run_shell_command(last_cmd)
     end
-    run_shell_command(cmd)
 end)
 
 -- The keymap takes command from the user and
 -- puts the command into 'run' register
 vim.keymap.set("n", "<leader>;", function()
     vim.ui.input({ prompt = "sh: ", default = "", completion=("customlist,%s"):format("CompileInputComplete") }, function(new_cmd)
-        if new_cmd == nil then return end
-        vim.fn.setreg("r", new_cmd)
+        if new_cmd == nil or new_cmd == "" then return end
+        last_cmd = new_cmd
         run_shell_command(new_cmd)
     end)
 end)
