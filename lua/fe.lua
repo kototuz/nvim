@@ -95,7 +95,7 @@ function Fe:render(mark)
         end
     end
 
-    vim.api.nvim_buf_set_name(self.buf, self.dir)
+    vim.api.nvim_buf_set_name(self.buf, string.format("[%s]", self.dir))
     vim.api.nvim_set_option_value("modifiable", true, { buf = self.buf })
     vim.api.nvim_buf_set_lines(self.buf, 0, -1, false, filenames)
     vim.api.nvim_set_option_value("modifiable", false, { buf = self.buf })
