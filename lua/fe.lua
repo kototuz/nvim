@@ -215,6 +215,8 @@ function Fe:cd(file_idx)
 end
 
 function Fe:open(path)
+    self.prev_buf = vim.api.nvim_win_get_buf(0)
+
     self.buf = vim.api.nvim_create_buf(false, true)
     vim.api.nvim_set_option_value("modifiable", false, { buf = self.buf })
     vim.api.nvim_set_option_value("buftype", "nowrite", { buf = self.buf })
@@ -230,6 +232,11 @@ function Fe:open(path)
 
     vim.cmd "syntax match dir '.\\+/'"
     vim.cmd "hi def link dir Directory"
+end
+
+function Fe:close()
+    vim.api.nvim_win_set_buf(0, self.prev_buf)
+    vim.api.nvim_buf_delete(self.buf, { force = true })
 end
 
 -- ========================================
@@ -298,7 +305,7 @@ Fe:autocmd("TextYankPost", function()
 end)
 
 Fe:keymap("n", "q", function()
-    vim.api.nvim_buf_delete(Fe.buf, { force = true })
+    Fe:close()
 end)
 
 Fe:keymap("n", ";", function()
