@@ -40,7 +40,25 @@ end
 -- FE API
 -- ========================================
 
-local Fe = { on_open_actions = {} }
+-- Define file explorer type
+local Fe = {}
+Fe.__index = Fe
+
+local global = {
+    on_open_actions = {},
+    marks = { copy = nil, file_paths = {} },
+    instance_map = {}
+}
+
+function Fe.new()
+    local self = setmetatable({}, Fe)
+    self.buf          = nil
+    self.prev_buf     = nil
+    self.dir          = nil
+    self.files        = nil
+    self.verbose_mode = false
+    return self
+end
 
 function Fe:render(mark)
     self.files = {}
@@ -66,7 +84,7 @@ function Fe:render(mark)
         end
     else
         render_file_fn = function(file)
-            local file_size = vim.fn.getfsize(Fe:path_with(file.name))
+            local file_size = vim.fn.getfsize(self:path_with(file.name))
             local res = format_size(file_size) .. " " .. file.name
             if file.type == "directory" then
                 res = res .. "/"
@@ -95,20 +113,22 @@ function Fe:render(mark)
         end
     end
 
-    vim.api.nvim_buf_set_name(self.buf, string.format("[%s]", self.dir))
+    vim.api.nvim_buf_set_name(self.buf, string.format("fe%d:%s", self.buf, self.dir))
     vim.api.nvim_set_option_value("modifiable", true, { buf = self.buf })
     vim.api.nvim_buf_set_lines(self.buf, 0, -1, false, filenames)
     vim.api.nvim_set_option_value("modifiable", false, { buf = self.buf })
 end
 
-function Fe:keymap(modes, binding, action)
-    table.insert(self.on_open_actions, function(buf)
-        vim.keymap.set(modes, binding, action, { buffer = buf })
+function global.keymap(modes, binding, action)
+    table.insert(global.on_open_actions, function(buf)
+        vim.keymap.set(modes, binding, function()
+            action(global.instance_map[buf])
+        end, { buffer = buf })
     end)
 end
 
-function Fe:autocmd(event, callback)
-    table.insert(self.on_open_actions, function(buf)
+function global.autocmd(event, callback)
+    table.insert(global.on_open_actions, function(buf)
         vim.api.nvim_create_autocmd(event, {
             buffer = buf,
             callback = callback
@@ -122,7 +142,7 @@ end
 
 function Fe:set_dir(path)
     self.dir = path
-    Fe:render()
+    self:render()
 end
 
 function Fe:delete(file_range)
@@ -132,27 +152,27 @@ function Fe:delete(file_range)
         for i = file_range.b, file_range.e do
             local file = self.files[i]
             assert(file)
-            vim.fs.rm(Fe:path_with(file.name), { recursive = true })
+            vim.fs.rm(self:path_with(file.name), { recursive = true })
         end
-        Fe:render()
+        self:render()
     end)
 end
 
 function Fe:mark(file_range, as_copy)
     if #self.files == 0 then return end
-    self.marks = { copy = as_copy, file_paths = {} }
+    global.marks = { copy = as_copy, file_paths = {} }
     for i = file_range.b, file_range.e do
         local file = self.files[i]
         assert(file)
-        table.insert(self.marks.file_paths, Fe:path_with(file.name))
+        table.insert(global.marks.file_paths, self:path_with(file.name))
     end
 end
 
 function Fe:paste()
-    if self.marks == nil then return end
+    if global.marks == nil then return end
 
     local command
-    if self.marks.copy then
+    if global.marks.copy then
         command = function(src, dst)
             vim.fn.system { "cp", "-r", src, dst }
         end
@@ -162,12 +182,12 @@ function Fe:paste()
         end
     end
 
-    for _, file_path in pairs(self.marks.file_paths) do
+    for _, file_path in pairs(global.marks.file_paths) do
         command(file_path, self.dir)
     end
-    self.marks = nil
+    global.marks = nil
 
-    Fe:render()
+    self:render()
 end
 
 function Fe:create()
@@ -175,13 +195,13 @@ function Fe:create()
         if input == nil or input == "" then return end
 
         if input:sub(-1) == '/' then
-            vim.fn.mkdir(Fe:path_with(input), "p")
+            vim.fn.mkdir(self:path_with(input), "p")
         else
-            local new_file = io.open(Fe:path_with(input), "w")
+            local new_file = io.open(self:path_with(input), "w")
             new_file:close()
         end
 
-        Fe:render()
+        self:render()
     end)
 end
 
@@ -191,13 +211,13 @@ function Fe:rename(file_idx)
     assert(file)
     vim.ui.input({ prompt = "Rename: ", default = file.name }, function(input)
         if input == nil or input == "" then return end
-        vim.fn.rename(Fe:path_with(file.name), Fe:path_with(input))
-        Fe:render()
+        vim.fn.rename(self:path_with(file.name), self:path_with(input))
+        self:render()
     end)
 end
 
 function Fe:cd_back()
-    Fe:set_dir(vim.fs.dirname(self.dir))
+    self:set_dir(vim.fs.dirname(self.dir))
 end
 
 function Fe:cd(file_idx)
@@ -205,30 +225,33 @@ function Fe:cd(file_idx)
     local file = self.files[file_idx]
     assert(file)
 
-    local new_path = Fe:path_with(file.name)
+    local new_path = self:path_with(file.name)
     if file.type ~= "directory" then
         vim.cmd.edit(new_path)
         return
     end
 
-    Fe:set_dir(new_path)
+    self:set_dir(new_path)
 end
 
-function Fe:open(path)
-    self.prev_buf = vim.api.nvim_win_get_buf(0)
+function Fe.open(path)
+    local new_fe = Fe.new()
 
-    self.buf = vim.api.nvim_create_buf(false, true)
-    vim.api.nvim_set_option_value("modifiable", false, { buf = self.buf })
-    vim.api.nvim_set_option_value("buftype", "nowrite", { buf = self.buf })
-    vim.api.nvim_set_option_value("bufhidden", "delete", { buf = self.buf })
+    new_fe.prev_buf = vim.api.nvim_win_get_buf(0)
 
-    self.verbose_mode = false
-    for _, action in ipairs(self.on_open_actions) do
-        action(self.buf)
+    new_fe.buf = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_set_option_value("modifiable", false, { buf = new_fe.buf })
+    vim.api.nvim_set_option_value("buftype", "nowrite", { buf = new_fe.buf })
+    vim.api.nvim_set_option_value("bufhidden", "delete", { buf = new_fe.buf })
+
+    for _, action in ipairs(global.on_open_actions) do
+        action(new_fe.buf)
     end
 
-    Fe:set_dir(path)
-    vim.api.nvim_win_set_buf(0, self.buf)
+    new_fe:set_dir(path)
+    vim.api.nvim_win_set_buf(0, new_fe.buf)
+
+    global.instance_map[new_fe.buf] = new_fe
 
     vim.cmd "syntax match dir '.\\+/'"
     vim.cmd "hi def link dir Directory"
@@ -256,7 +279,7 @@ vim.api.nvim_create_autocmd("BufEnter", {
         local stat = vim.uv.fs_stat(path)
         if stat ~= nil and stat.type == "directory" then
             vim.api.nvim_buf_delete(buf, { force = true })
-            Fe:open(path)
+            Fe.open(path)
         end
     end
 })
@@ -275,41 +298,38 @@ vim.api.nvim_create_autocmd("VimEnter", {
 -- KEYMAPS INSIDE FE
 -- ========================================
 
-Fe:keymap("n", "h",     function() Fe:cd_back() end)
-Fe:keymap("n", "a",     function() Fe:create() end)
-Fe:keymap("n", "p",     function() Fe:paste() end)
-Fe:keymap("n", "i",     function() vim.fn.chdir(Fe.dir) end)
-Fe:keymap("n", "<C-l>", function() Fe:render() end)
-Fe:keymap("n", "l",     function() Fe:cd(cursor_row()) end)
-Fe:keymap("n", "r",     function() Fe:rename(cursor_row()) end)
+global.keymap("n", "h",     function(fe) fe:cd_back() end)
+global.keymap("n", "a",     function(fe) fe:create() end)
+global.keymap("n", "p",     function(fe) fe:paste() end)
+global.keymap("n", "i",     function(fe) vim.fn.chdir(fe.dir) end)
+global.keymap("n", "<C-l>", function(fe) fe:render() end)
+global.keymap("n", "l",     function(fe) fe:cd(cursor_row()) end)
+global.keymap("n", "r",     function(fe) fe:rename(cursor_row()) end)
+global.keymap("n", "q",     function(fe) fe:close() end)
+global.keymap("n", ";",     function(fe) fe:set_dir(vim.fn.getcwd()) end)
 
-Fe:keymap("n", ".", function()
-    Fe.verbose_mode = not Fe.verbose_mode
-    Fe:render()
+global.keymap("n", ".", function(fe)
+    fe.verbose_mode = not fe.verbose_mode
+    fe:render()
 end)
 
-Fe:keymap({ "n", "v" }, "d", function() 
-    Fe:delete(selection_range())
+global.keymap({ "n", "v" }, "d", function(fe) 
+    fe:delete(selection_range())
     vim.api.nvim_input("<Esc>")
 end)
 
-Fe:keymap({ "n", "v" }, "m", function() 
-    Fe:mark(selection_range(), false)
+global.keymap({ "n", "v" }, "m", function(fe)
+    fe:mark(selection_range(), false)
     vim.api.nvim_input("<Esc>")
 end)
 
-Fe:autocmd("TextYankPost", function()
+global.autocmd("TextYankPost", function()
     local event = vim.api.nvim_get_vvar("event")
     if event.operator ~= 'y' then return end
-    Fe:mark(range(vim.fn.getpos("'[")[2], vim.fn.getpos("']")[2]), true)
-end)
 
-Fe:keymap("n", "q", function()
-    Fe:close()
-end)
-
-Fe:keymap("n", ";", function()
-    Fe:set_dir(vim.fn.getcwd())
+    local curr_buf = vim.api.nvim_win_get_buf(0)
+    local fe = global.instance_map[curr_buf]
+    fe:mark(range(vim.fn.getpos("'[")[2], vim.fn.getpos("']")[2]), true)
 end)
 
 -- ========================================
@@ -318,5 +338,5 @@ end)
 
 vim.keymap.set("n", "<leader>p", function()
     local dir = vim.fs.dirname(vim.api.nvim_buf_get_name(0))
-    Fe:open(dir)
+    Fe.open(dir)
 end)
