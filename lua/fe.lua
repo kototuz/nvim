@@ -234,7 +234,7 @@ function Fe:cd(file_idx)
     self:set_dir(new_path)
 end
 
-function Fe.open(path)
+function Fe.open(path, buf)
     if vim.uv.fs_stat(path) == nil then
         print("Path does not exist")
         return
@@ -244,7 +244,7 @@ function Fe.open(path)
 
     new_fe.prev_buf = vim.api.nvim_win_get_buf(0)
 
-    new_fe.buf = vim.api.nvim_create_buf(false, true)
+    new_fe.buf = buf or vim.api.nvim_create_buf(false, true)
     vim.api.nvim_set_option_value("modifiable", false, { buf = new_fe.buf })
     vim.api.nvim_set_option_value("buftype", "nowrite", { buf = new_fe.buf })
     vim.api.nvim_set_option_value("bufhidden", "delete", { buf = new_fe.buf })
@@ -283,18 +283,7 @@ vim.api.nvim_create_autocmd("BufEnter", {
         local path = vim.api.nvim_buf_get_name(buf)
         local stat = vim.uv.fs_stat(path)
         if stat ~= nil and stat.type == "directory" then
-            vim.api.nvim_buf_delete(buf, { force = true })
-            Fe.open(path)
-        end
-    end
-})
-
-vim.api.nvim_create_autocmd("VimEnter", {
-    group = group,
-    callback = function()
-        local is_valid = vim.api.nvim_buf_is_valid(2)
-        if is_valid then
-            vim.api.nvim_buf_delete(2, { force = true })
+            Fe.open(path, buf)
         end
     end
 })
