@@ -342,6 +342,15 @@ end)
 -- ========================================
 
 vim.keymap.set("n", "<leader>p", function()
-    local dir = vim.fs.dirname(vim.api.nvim_buf_get_name(0))
+    local curr_buf = vim.api.nvim_get_current_buf()
+
+    local dir
+    local fe = global.instance_map[curr_buf]
+    if fe then
+        dir = fe.dir
+    else
+        dir = vim.fs.dirname(vim.api.nvim_buf_get_name(curr_buf))
+    end
+
     Fe.open(dir)
 end)
