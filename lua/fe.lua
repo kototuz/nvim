@@ -235,6 +235,11 @@ function Fe:cd(file_idx)
 end
 
 function Fe.open(path)
+    if vim.uv.fs_stat(path) == nil then
+        print("Path does not exist")
+        return
+    end
+
     local new_fe = Fe.new()
 
     new_fe.prev_buf = vim.api.nvim_win_get_buf(0)
