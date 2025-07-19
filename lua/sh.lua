@@ -1,29 +1,38 @@
-local build_buffer = nil
-local build_win    = nil
-local last_cmd     = nil
+local build_win_map = {}
+
+function current_build_win()
+    local tabpage = vim.api.nvim_get_current_tabpage()
+    if build_win_map[tabpage] == nil then
+        build_win_map[tabpage] = {}
+    end
+
+    return build_win_map[tabpage]
+end
 
 local function run_shell_command(cmd)
+    local build_win = current_build_win()
+
     -- Delete old buffer
-    local no_window = (not build_buffer) or vim.fn.bufwinid(build_buffer) == -1
-    if build_buffer == not nil and vim.api.nvim_buf_is_valid(build_buffer) then
-        vim.api.nvim_buf_delete(build_buffer, { force = true })
+    local no_window = (not build_win.buf) or vim.fn.bufwinid(build_win.buf) == -1
+    if build_win.buf == not nil and vim.api.nvim_buf_is_valid(build_win.buf) then
+        vim.api.nvim_buf_delete(build_win.buf, { force = true })
     end
 
     -- Create new buffer
-    build_buffer = vim.api.nvim_create_buf(false, true)
+    build_win.buf = vim.api.nvim_create_buf(false, true)
 
     -- Open window if it is not opened
     if no_window then
-        build_win = vim.api.nvim_open_win(build_buffer, false, {
+        build_win.win = vim.api.nvim_open_win(build_win.buf, false, {
             split = 'below',
             win = 0,
         })
     else
-        vim.api.nvim_win_set_buf(build_win, build_buffer)
+        vim.api.nvim_win_set_buf(build_win.win, build_win.buf)
     end
 
     -- Run command
-    vim.api.nvim_win_call(build_win, function()
+    vim.api.nvim_win_call(build_win.win, function()
         vim.fn.jobstart(cmd, { term = true })
         vim.cmd("normal G")
     end)
@@ -42,15 +51,17 @@ endfunction
 -- The keymap run last command
 -- If the 'run' register is empty we take it from the user
 vim.keymap.set("n", "<leader>l", function()
+    local build_win = current_build_win()
+
     -- Get input from user if the run register is empty
-    if last_cmd == nil then
+    if build_win.last_cmd == nil then
         vim.ui.input({ prompt = "sh: ", completion=("customlist,%s"):format("CompileInputComplete") }, function(new_cmd)
             if new_cmd == nil or new_cmd == "" then return end
-            last_cmd = new_cmd
+            build_win.last_cmd = new_cmd
             run_shell_command(new_cmd)
         end)
     else
-        run_shell_command(last_cmd)
+        run_shell_command(build_win.last_cmd)
     end
 end)
 
@@ -59,16 +70,17 @@ end)
 vim.keymap.set("n", "<leader>;", function()
     vim.ui.input({ prompt = "sh: ", default = "", completion=("customlist,%s"):format("CompileInputComplete") }, function(new_cmd)
         if new_cmd == nil or new_cmd == "" then return end
-        last_cmd = new_cmd
+        current_build_win().last_cmd = new_cmd
         run_shell_command(new_cmd)
     end)
 end)
 
 -- Scroll the build window up
 vim.keymap.set("n", "<C-k>", function()
-    local no_window = (not build_buffer) or vim.fn.bufwinid(build_buffer) == -1
+    local build_win = current_build_win()
+    local no_window = (not build_win.buf) or vim.fn.bufwinid(build_win.buf) == -1
     if not no_window then
-        vim.api.nvim_win_call(build_win, function()
+        vim.api.nvim_win_call(build_win.win, function()
             vim.cmd("exe \"normal! \\<C-u>\"")
         end)
     end
@@ -76,9 +88,10 @@ end)
 
 -- Scroll the build window down
 vim.keymap.set("n", "<C-j>", function()
-    local no_window = (not build_buffer) or vim.fn.bufwinid(build_buffer) == -1
+    local build_win = current_build_win()
+    local no_window = (not build_win.buf) or vim.fn.bufwinid(build_win.buf) == -1
     if not no_window then
-        vim.api.nvim_win_call(build_win, function()
+        vim.api.nvim_win_call(build_win.win, function()
             vim.cmd("exe \"normal! \\<C-d>\"")
         end)
     end
