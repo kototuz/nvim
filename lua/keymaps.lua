@@ -41,15 +41,23 @@ vim.keymap.set("n", "<leader>3", ":tabn 3<CR>")
 vim.keymap.set("n", "<leader>4", ":tabn 4<CR>")
 vim.keymap.set("n", "<leader>5", ":tabn 5<CR>")
 
-vim.keymap.set("n", "<leader>r", "*Ncgn")
+vim.keymap.set("n", "<leader>r", function()
+    local word = vim.fn.expand("<cword>")
+    vim.ui.input({ prompt = "Replace: ", default = word }, function(input)
+        if input == nil or input == "" then return end
+        vim.cmd(string.format(".,$s/\\<%s\\>/%s/c", word, input))
+    end)
+end)
 vim.keymap.set("v", "<leader>r", function()
     vim.cmd.normal("")
 
     local b = vim.fn.getpos("'<")
     local e = vim.fn.getpos("'>")
     local lines = vim.api.nvim_buf_get_text(0, b[2]-1, b[3]-1, e[2]-1, e[3], {})
-    local s = "\\V" .. table.concat(lines, "\n")
-    vim.fn.setreg("/", s)
+    local text = table.concat(lines, "\n")
 
-    vim.api.nvim_feedkeys("cgn", "n", false)
+    vim.ui.input({ prompt = "Replace: ", default = text }, function(input)
+        if input == nil or input == "" then return end
+        vim.cmd(string.format(".,$s/\\V%s/%s/c", text, input))
+    end)
 end)
