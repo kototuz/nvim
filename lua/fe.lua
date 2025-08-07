@@ -295,7 +295,7 @@ vim.api.nvim_create_autocmd("BufEnter", {
 global.keymap("n", "h",     function(fe) fe:cd_back() end)
 global.keymap("n", "a",     function(fe) fe:create() end)
 global.keymap("n", "p",     function(fe) fe:paste() end)
-global.keymap("n", "i",     function(fe) vim.fn.chdir(fe.dir) end)
+global.keymap("n", "i",     function(fe) vim.fn.chdir(fe.dir); fe:render() end)
 global.keymap("n", "<C-l>", function(fe) fe:render() end)
 global.keymap("n", "l",     function(fe) fe:cd(cursor_row()) end)
 global.keymap("n", "r",     function(fe) fe:rename(cursor_row()) end)
