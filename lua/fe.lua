@@ -226,12 +226,12 @@ function Fe:cd(file_idx)
     assert(file)
 
     local new_path = self:path_with(file.name)
-    if file.type ~= "directory" then
+    if file.type == "directory" then
+        self:set_dir(new_path)
+    else
+        new_path = new_path:gsub(vim.fn.getcwd() .. "/", "")
         vim.cmd.edit(new_path)
-        return
     end
-
-    self:set_dir(new_path)
 end
 
 function Fe.open(path, buf)
