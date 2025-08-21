@@ -17,25 +17,6 @@ function cursor_row()
     return vim.fn.getpos(".")[2]
 end
 
-local KB = 1024
-local MB = KB^2
-local GB = KB^3
-function format_size(size)
-    local formats = {
-        { size/GB, "G" },
-        { size/MB, "M" },
-        { size/KB, "K" },
-    }
-
-    for _, f in ipairs(formats) do
-        if math.floor(f[1]) > 0 then
-            return string.format("%.1f%s", f[1], f[2])
-        end
-    end
-
-    return tostring(size) .. "B"
-end
-
 function string:starts_with(start)
     return self:sub(1, start:len()) == start
 end
@@ -350,3 +331,5 @@ vim.keymap.set("n", "<leader>p", function()
     local curr_buf_dir = vim.fs.dirname(curr_buf_name)
     open(curr_buf_dir)
 end)
+
+-- TODO: Reinit buffer when it is unloaded
