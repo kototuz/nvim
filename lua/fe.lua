@@ -43,7 +43,14 @@ end
 local state = {}
 
 function open(path)
-    if vim.uv.fs_stat(path) == nil then
+    local norm_path = vim.fs.normalize(vim.fs.abspath(path))
+    local curr_buf = vim.api.nvim_get_current_buf()
+    if curr_buf == state.buf then
+        set_dir(norm_path)
+        return
+    end
+
+    if vim.uv.fs_stat(norm_path) == nil then
         print("Path does not exist")
         return
     end
@@ -69,7 +76,7 @@ function open(path)
     local result = vim.api.nvim_open_win(state.buf, true, state.win_config)
 
     -- Set directory for current tab
-    set_dir(path)
+    set_dir(norm_path)
 
     -- Set highligting for directories
     vim.cmd "syntax match dir '.\\+/'"
@@ -85,12 +92,14 @@ function open_tab(idx)
         state.tabs[idx] = state.tabs[state.curr_tab_idx]
     end
 
-    -- Update window title
     state.win_config.title = "Tab " .. idx
     vim.api.nvim_win_set_config(0, state.win_config)
 
     state.curr_tab_idx = idx
     render()
+end
+
+function update_tab_title()
 end
 
 function set_dir(path)
@@ -339,7 +348,7 @@ end, { buffer = state.buf })
 -- Rerender
 vim.keymap.set("n", "<C-l>", function() render() end, { buffer = state.buf })
 
--- Select tab
+-- Open tab
 vim.keymap.set("n", "o1", function() open_tab(1) end, { buffer = state.buf })
 vim.keymap.set("n", "o2", function() open_tab(2) end, { buffer = state.buf })
 vim.keymap.set("n", "o3", function() open_tab(3) end, { buffer = state.buf })
@@ -347,13 +356,22 @@ vim.keymap.set("n", "o4", function() open_tab(4) end, { buffer = state.buf })
 vim.keymap.set("n", "o5", function() open_tab(5) end, { buffer = state.buf })
 
 -- ========================================
--- KEYMAPS OUTSIDE FE
+-- KEYMAPS AND COMMANDS OUTSIDE FE
 -- ========================================
+
+vim.api.nvim_create_user_command("Fe", function(opts)
+    if opts.fargs[1] == nil then
+        open(vim.fn.getcwd())
+    else
+        open(opts.fargs[1])
+    end
+end, { nargs = "?", complete = "dir_in_path" })
 
 -- Open fe
 vim.keymap.set("n", "<leader>p", function()
-    local curr_buf = vim.api.nvim_get_current_buf()
-    if curr_buf == state.buf then return end
-    dir = vim.fs.dirname(vim.api.nvim_buf_get_name(curr_buf))
-    open(dir)
+    local curr_buf_name = vim.api.nvim_buf_get_name(vim.api.nvim_get_current_buf())
+    local curr_buf_dir = vim.fs.dirname(curr_buf_name)
+    open(curr_buf_dir)
 end)
+
+-- TODO: Use 'ls' command to render directory
