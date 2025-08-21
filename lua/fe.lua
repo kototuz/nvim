@@ -78,10 +78,6 @@ function open(path)
     -- Set directory for current tab
     set_dir(norm_path)
 
-    -- Set highligting for directories
-    vim.cmd "syntax match dir '.\\+/'"
-    vim.cmd "hi def link dir Directory"
-
     vim.opt_local.cursorline = true
 
     return result
@@ -112,54 +108,15 @@ function get_dir()
 end
 
 function render()
-    state.files = {}
-    for filename, type in vim.fs.dir(get_dir()) do
-        state.files = vim.fn.add(state.files, {
-            name = filename,
-            type = type
-        })
+    local command = { "ls", "--group-directories-first", "-F", get_dir() }
+    if state.verbose_mode then
+        table.insert(command, "-A")
     end
 
-    local render_file_fn
-    if not state.verbose_mode then
-        state.files = vim.fn.filter(state.files, function(_, file)
-            return file.name:sub(1, 1) ~= '.'
-        end)
-
-        render_file_fn = function(file)
-            if file.type == "directory" then
-                return file.name .. "/"
-            else
-                return file.name
-            end
-        end
-    else
-        render_file_fn = function(file)
-            local file_size = vim.fn.getfsize(dir_path_with(file.name))
-            local res = format_size(file_size) .. " " .. file.name
-            if file.type == "directory" then
-                res = res .. "/"
-            end
-            return res
-        end
-    end
-
-    state.files = vim.fn.sort(state.files, function(lhs, rhs)
-        if lhs.type == "directory" and rhs.type ~= "directory" then
-            return -1
-        end
-        if lhs.type ~= "directory" and rhs.type == "directory" then
-            return 1
-        end
-        return 0
-    end)
-
-    local filenames = vim.fn.map(state.files, function(_, file)
-        return render_file_fn(file)
-    end)
-
+    local output = vim.system(command, { text = true }):wait()
+    state.files = vim.fn.split(output.stdout, "\n")
     vim.api.nvim_set_option_value("modifiable", true, { buf = state.buf })
-    vim.api.nvim_buf_set_lines(state.buf, 0, -1, false, filenames)
+    vim.api.nvim_buf_set_lines(state.buf, 0, -1, false, state.files)
     vim.api.nvim_set_option_value("modifiable", false, { buf = state.buf })
 end
 
@@ -171,10 +128,21 @@ function mark_files(file_range, as_copy)
     if #state.files == 0 then return end
     state.marks = { copy = as_copy, file_paths = {} }
     for i = file_range.b, file_range.e do
-        local file = state.files[i]
-        assert(file)
-        table.insert(state.marks.file_paths, dir_path_with(file.name))
+        local filename = get_norm_filename(i)
+        assert(filename)
+        table.insert(state.marks.file_paths, dir_path_with(filename))
     end
+end
+
+function get_norm_filename(idx)
+    local filename = state.files[idx]
+    if filename == nil then return nil end
+    local last_char = filename:sub(-1)
+    if last_char == "/" or last_char == "*" or last_char == "@" then
+        return filename:sub(1, -2)
+    end
+
+    return filename
 end
 
 
@@ -208,6 +176,7 @@ end
 state.buf = vim.api.nvim_create_buf(false, false)
 vim.api.nvim_set_option_value("modifiable", false, { buf = state.buf })
 vim.api.nvim_set_option_value("buftype", "nofile", { buf = state.buf })
+vim.api.nvim_set_option_value("filetype", "netrw", { buf = state.buf })
 
 state.win_config = {
     relative = "editor",
@@ -223,19 +192,19 @@ vim.keymap.set("n", "q", function()
     vim.api.nvim_win_close(0, false)
 end, { buffer = state.buf })
 
--- Cd
+-- Cd or open file
 vim.keymap.set("n", "l", function()
-    if #state.files == 0 then return end
-    local file = state.files[cursor_row()]
-    assert(file)
+    local filename = state.files[cursor_row()]
+    if filename == nil then return end
 
-    local new_path = dir_path_with(file.name)
-    if file.type == "directory" then
-        set_dir(new_path)
+    local norm_filename = get_norm_filename(cursor_row())
+    local path = dir_path_with(norm_filename)
+    if filename:sub(-1) == "/" then
+        set_dir(path)
     else
         vim.api.nvim_win_close(0, true)
-        new_path = new_path:gsub(vim.fn.getcwd() .. "/", "")
-        vim.cmd.edit(new_path)
+        path = path:gsub(vim.fn.getcwd() .. "/", "")
+        vim.cmd.edit(path)
     end
 end, { buffer = state.buf })
 
@@ -262,12 +231,11 @@ end, { buffer = state.buf })
 
 -- Rename file
 vim.keymap.set("n", "r", function()
-    if #state.files == 0 then return end
-    local file = state.files[cursor_row()]
-    assert(file)
-    vim.ui.input({ prompt = "Rename: ", default = file.name }, function(input)
+    local filename = get_norm_filename(cursor_row())
+    if filename == nil then return end
+    vim.ui.input({ prompt = "Rename: ", default = filename }, function(input)
         if input == nil or input == "" then return end
-        vim.fn.rename(dir_path_with(file.name), dir_path_with(input))
+        vim.fn.rename(dir_path_with(filename), dir_path_with(input))
         render()
     end)
 end, { buffer = state.buf })
@@ -279,9 +247,9 @@ vim.keymap.set({ "n", "v" }, "d", function()
         if input ~= "y" then return end
         local file_range = selection_range()
         for i = file_range.b, file_range.e do
-            local file = state.files[i]
-            assert(file)
-            vim.fs.rm(dir_path_with(file.name), { recursive = true })
+            local filename = get_norm_filename(i)
+            assert(filename)
+            vim.fs.rm(dir_path_with(filename), { recursive = true })
         end
         render()
     end)
@@ -373,5 +341,3 @@ vim.keymap.set("n", "<leader>p", function()
     local curr_buf_dir = vim.fs.dirname(curr_buf_name)
     open(curr_buf_dir)
 end)
-
--- TODO: Use 'ls' command to render directory
