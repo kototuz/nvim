@@ -36,6 +36,10 @@ function format_size(size)
     return tostring(size) .. "B"
 end
 
+function string:starts_with(start)
+    return self:sub(1, start:len()) == start
+end
+
 -- ========================================
 -- FE API
 -- ========================================
@@ -203,7 +207,12 @@ vim.keymap.set("n", "l", function()
         set_dir(path)
     else
         vim.api.nvim_win_close(0, true)
-        path = path:gsub(vim.fn.getcwd() .. "/", "")
+
+        local cwd = vim.fn.getcwd() .. "/"
+        if path:starts_with(cwd) then
+            path = path:sub(cwd:len()+1, -1)
+        end
+
         vim.cmd.edit(path)
     end
 end, { buffer = state.buf })
