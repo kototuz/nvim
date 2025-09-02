@@ -29,19 +29,16 @@ local state = {}
 
 function open(path)
     local norm_path = vim.fs.normalize(vim.fs.abspath(path))
-    local curr_buf = vim.api.nvim_get_current_buf()
-    if curr_buf == state.buf then
-        set_dir(norm_path)
-        return
-    end
+    -- local curr_buf = vim.api.nvim_get_current_buf()
+    -- if curr_buf == state.buf then
+    --     set_dir(norm_path)
+    --     return
+    -- end
 
     if vim.uv.fs_stat(norm_path) == nil then
         print("Path does not exist")
         return
     end
-
-    -- Save buffer to jump to it when fe is closed
-    state.prev_buf = vim.api.nvim_win_get_buf(0)
 
     -- Init tabs
     state.tabs = {}
@@ -49,16 +46,19 @@ function open(path)
 
     state.verbose_mode = false
 
-    -- Update window config
-    local columns = vim.o.columns
-    local lines = vim.o.lines - 3 -- exclude 2 bottom lines with mode, buffer name, etc.
-    state.win_config.width = math.floor(columns * 0.8)
-    state.win_config.height = math.floor(lines * 0.8)
-    state.win_config.col = math.floor((columns - state.win_config.width) / 2)
-    state.win_config.row = math.floor((lines - state.win_config.height) / 2)
-    state.win_config.title = "Tab 1"
+    vim.api.nvim_win_set_buf(0, state.buf)
+    vim.api.nvim_buf_set_name(state.buf, "[Tab 1]")
 
-    local result = vim.api.nvim_open_win(state.buf, true, state.win_config)
+    -- Update window config
+    -- local columns = vim.o.columns
+    -- local lines = vim.o.lines - 3 -- exclude 2 bottom lines with mode, buffer name, etc.
+    -- state.win_config.width = math.floor(columns * 0.8)
+    -- state.win_config.height = math.floor(lines * 0.8)
+    -- state.win_config.col = math.floor((columns - state.win_config.width) / 2)
+    -- state.win_config.row = math.floor((lines - state.win_config.height) / 2)
+    -- state.win_config.title = "Tab 1"
+    --
+    -- local result = vim.api.nvim_open_win(state.buf, true, state.win_config)
 
     -- Set directory for current tab
     set_dir(norm_path)
@@ -73,14 +73,10 @@ function open_tab(idx)
         state.tabs[idx] = state.tabs[state.curr_tab_idx]
     end
 
-    state.win_config.title = "Tab " .. idx
-    vim.api.nvim_win_set_config(0, state.win_config)
+    vim.api.nvim_buf_set_name(state.buf, "[Tab " .. idx .. "]")
 
     state.curr_tab_idx = idx
     render()
-end
-
-function update_tab_title()
 end
 
 function set_dir(path)
@@ -135,23 +131,33 @@ end
 -- ========================================
 -- USE FE TO OPEN DIRECTORIES
 -- ========================================
+
 -- Delete netrw stuff
--- vim.g.loaded_netrw = 1
--- vim.g.loaded_netrwPlugin = 1
--- vim.api.nvim_del_augroup_by_name("FileExplorer");
--- local group = vim.api.nvim_create_augroup("Fe", { clear = true })
--- vim.api.nvim_create_autocmd("BufEnter", {
---     group = group,
---     callback = function()
---         local buf = vim.api.nvim_win_get_buf(0)
---         local path = vim.api.nvim_buf_get_name(buf)
---         local stat = vim.uv.fs_stat(path)
---         if stat ~= nil and stat.type == "directory" then
---             vim.api.nvim_buf_delete(buf, { force = true })
---             open(path)
---         end
---     end
--- })
+vim.g.loaded_netrw = 1
+vim.g.loaded_netrwPlugin = 1
+vim.api.nvim_del_augroup_by_name("FileExplorer");
+
+local group = vim.api.nvim_create_augroup("Fe", { clear = true })
+vim.api.nvim_create_autocmd("BufEnter", {
+    group = group,
+    callback = function()
+        local new_buf = vim.api.nvim_win_get_buf(0)
+        local path = vim.api.nvim_buf_get_name(new_buf)
+        local stat = vim.uv.fs_stat(path)
+        if stat ~= nil and stat.type == "directory" then
+            local prev_buf = vim.fn.bufnr("#")
+            if prev_buf ~= -1 and prev_buf == state.buf then
+                vim.api.nvim_set_current_buf(state.buf)
+                local new_tab_path = vim.fs.normalize(vim.fs.abspath(path))
+                set_dir(new_tab_path)
+            else
+                open(path)
+            end
+
+            vim.api.nvim_buf_delete(new_buf, { force = true })
+        end
+    end
+})
 
 
 -- ========================================
@@ -174,7 +180,7 @@ state.win_config = {
 
 -- Close fe
 vim.keymap.set("n", "q", function()
-    vim.api.nvim_win_close(0, false)
+    vim.cmd.bprevious()
 end, { buffer = state.buf })
 
 -- Cd or open file
@@ -187,8 +193,6 @@ vim.keymap.set("n", "l", function()
     if filename:sub(-1) == "/" then
         set_dir(path)
     else
-        vim.api.nvim_win_close(0, true)
-
         local cwd = vim.fn.getcwd() .. "/"
         if path:starts_with(cwd) then
             path = path:sub(cwd:len()+1, -1)
