@@ -1,23 +1,12 @@
 return {
     {
-        "metalelf0/black-metal-theme-neovim",
-        lazy = false,
-        priority = 1000,
+        "sainnhe/gruvbox-material",
         config = function()
-            require("black-metal").setup {
-                theme = "taake",
-                variant = "dark",
-                transparent = true,
-                code_style = {
-                    comments = "none"
-                },
-                highlights = {
-                    ["@punctuation.bracket"] = { fg = "$fg" },
-                    ["@constructor.lua"]     = { fg = "$fg" }
-                }
-            }
-
-            require("black-metal").load()
+            vim.g.gruvbox_material_enable_italic = false
+            vim.g.gruvbox_material_background = "hard"
+            vim.g.gruvbox_material_float_style = "dim"
+            vim.g.gruvbox_material_disable_italic_comment = true
+            vim.cmd.colorscheme("gruvbox-material")
         end
     },
 }

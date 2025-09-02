@@ -1,4 +1,4 @@
-vim.opt.guicursor = "n-v-c-i:block"
+vim.opt.guicursor = "n-v-sm:block,i-ve-t-c-ci:ver25,r-cr-o:hor20"
 vim.opt.inccommand = "split"
 vim.opt.hls = false
 vim.opt.smartcase = true
@@ -20,12 +20,7 @@ vim.opt.scrolloff = 10
 vim.opt.updatetime = 50
 vim.opt.wrap = false
 vim.opt.list = true
-vim.opt.listchars = { tab = "» " }
+vim.opt.listchars = { tab = "» ", lead = "⸱", trail = "⸱" }
 vim.opt.laststatus = 3
 
 vim.g.c_no_curly_error = true
-vim.g.loaded_netrw = 1
-vim.g.loaded_netrwPlugin = 1
-vim.g.loaded_netrwFileHandlers = 1
-vim.g.loaded_netrwSettings = 1
-vim.g.loaded_netrw_gitignore = 1
