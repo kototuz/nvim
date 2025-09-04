@@ -24,3 +24,18 @@ vim.opt.listchars = { tab = "» ", lead = "⸱", trail = "⸱" }
 vim.opt.laststatus = 3
 
 vim.g.c_no_curly_error = true
+
+vim.opt.tabline = "%!v:lua.PillTabline()"
+function _G.PillTabline()
+    local s = ""
+    local tabs = vim.api.nvim_list_tabpages()
+    local current = vim.api.nvim_get_current_tabpage()
+
+    for i, tab in ipairs(tabs) do
+        local is_active = (tab == current)
+        local hl = is_active and "%#TabLine#" or "%#TabLineFill#"
+        s = s .. hl .. " " .. i .. " " .. "%#TabLineFill#"
+    end
+
+    return s
+end
