@@ -29,12 +29,6 @@ local state = {}
 
 function open(path)
     local norm_path = vim.fs.normalize(vim.fs.abspath(path))
-    -- local curr_buf = vim.api.nvim_get_current_buf()
-    -- if curr_buf == state.buf then
-    --     set_dir(norm_path)
-    --     return
-    -- end
-
     if vim.uv.fs_stat(norm_path) == nil then
         print("Path does not exist")
         return
@@ -57,7 +51,6 @@ function open(path)
     -- state.win_config.col = math.floor((columns - state.win_config.width) / 2)
     -- state.win_config.row = math.floor((lines - state.win_config.height) / 2)
     -- state.win_config.title = "Tab 1"
-    --
     -- local result = vim.api.nvim_open_win(state.buf, true, state.win_config)
 
     -- Set directory for current tab
@@ -127,7 +120,6 @@ function get_norm_filename(idx)
 end
 
 
--- NOTE: Maybe this stuff will be useful in the future
 -- ========================================
 -- USE FE TO OPEN DIRECTORIES
 -- ========================================
@@ -192,6 +184,7 @@ vim.keymap.set("n", "l", function()
     local path = dir_path_with(norm_filename)
     if filename:sub(-1) == "/" then
         set_dir(path)
+        vim.api.nvim_win_set_cursor(0, {1, 0})
     else
         local cwd = vim.fn.getcwd() .. "/"
         if path:starts_with(cwd) then
@@ -205,6 +198,7 @@ end, { buffer = state.buf })
 -- Cd back
 vim.keymap.set("n", "h", function()
     set_dir(vim.fs.dirname(get_dir()))
+    vim.api.nvim_win_set_cursor(0, {1, 0})
 end, { buffer = state.buf })
 
 -- Create file
