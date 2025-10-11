@@ -40,6 +40,7 @@ function open(path)
 
     state.verbose_mode = false
 
+    state.prev_buf = vim.api.nvim_get_current_buf()
     vim.api.nvim_win_set_buf(0, state.buf)
     vim.api.nvim_buf_set_name(state.buf, "[Tab 1]")
 
@@ -172,7 +173,7 @@ state.win_config = {
 
 -- Close fe
 vim.keymap.set("n", "q", function()
-    vim.cmd.bprevious()
+    vim.api.nvim_win_set_buf(0, state.prev_buf)
 end, { buffer = state.buf })
 
 -- Cd or open file
