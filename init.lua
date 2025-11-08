@@ -26,6 +26,8 @@ require("opts")
 require("terminal")
 require("fe")
 require("sh")
+-- require("buf")
+require("buf2")
 
 vim.api.nvim_create_autocmd('TextYankPost', {
     group = vim.api.nvim_create_augroup('highlight_yank', {}),
