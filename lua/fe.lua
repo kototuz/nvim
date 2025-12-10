@@ -25,7 +25,188 @@ end
 -- FE API
 -- ========================================
 
-local state = {}
+local state = {
+    buffers = {-1,-1,-1,-1,-1},
+    augroup = vim.api.nvim_create_augroup("Fe", { clear = true })
+}
+
+function setup_buf(buf)
+    vim.api.nvim_set_option_value("modifiable", false, { buf = buf })
+    vim.api.nvim_set_option_value("buftype", "nofile", { buf = buf })
+    vim.api.nvim_set_option_value("filetype", "netrw", { buf = buf })
+
+    function split() 
+        vim.cmd.split()
+        open(vim.b.fe_dir)
+        render()
+    end
+    function vsplit()
+        vim.cmd.vsplit()
+        open(vim.b.fe_dir)
+        render()
+    end
+    vim.keymap.set("n", "<C-w>v", vsplit, { buffer = buf })
+    vim.keymap.set("n", "<C-w><C-v>", vsplit, { buffer = buf })
+    vim.keymap.set("n", "<C-w>s", split, { buffer = buf })
+    vim.keymap.set("n", "<C-w><C-s>", split, { buffer = buf })
+
+    vim.api.nvim_create_autocmd("BufEnter", {
+        group = state.augroup,
+        buffer = buf,
+        callback = function()
+            render()
+        end
+    })
+
+    -- Close fe
+    vim.keymap.set("n", "q", function()
+        vim.api.nvim_win_set_buf(0, state.prev_buf)
+    end, { buffer = buf })
+
+    -- Cd or open file
+    vim.keymap.set("n", "l", function()
+        local filename = state.files[cursor_row()]
+        if filename == nil then return end
+
+        local norm_filename = get_norm_filename(cursor_row())
+        local path = dir_path_with(norm_filename)
+        if filename:sub(-1) == "/" then
+            set_dir(path)
+            vim.api.nvim_win_set_cursor(0, {1, 0})
+        else
+            local cwd = vim.fn.getcwd() .. "/"
+            if path:starts_with(cwd) then
+                path = path:sub(cwd:len()+1, -1)
+            end
+
+            vim.cmd.edit(path)
+        end
+    end, { buffer = buf })
+
+    -- Cd back
+    vim.keymap.set("n", "h", function()
+        set_dir(vim.fs.dirname(vim.b.fe_dir))
+        vim.api.nvim_win_set_cursor(0, {1, 0})
+    end, { buffer = buf })
+
+    -- Create file
+    vim.keymap.set("n", "a", function()
+        vim.ui.input({ prompt = "create: " }, function(input)
+            if input == nil or input == "" then return end
+
+            if input:sub(-1) == '/' then
+                vim.fn.mkdir(dir_path_with(input), "p")
+            else
+                local new_file = io.open(dir_path_with(input), "w")
+                new_file:close()
+            end
+
+            render()
+        end)
+    end, { buffer = buf })
+
+    -- Rename file
+    vim.keymap.set("n", "r", function()
+        local filename = get_norm_filename(cursor_row())
+        if filename == nil then return end
+        vim.ui.input({ prompt = "rename: ", default = filename }, function(input)
+            if input == nil or input == "" then return end
+            vim.fn.rename(dir_path_with(filename), dir_path_with(input))
+            render()
+        end)
+    end, { buffer = buf })
+
+    -- Delete files
+    vim.keymap.set({ "n", "v" }, "d", function()
+        if #state.files == 0 then return end
+        vim.ui.input({ prompt = "delete? " }, function(input)
+            if input ~= "y" then return end
+            local file_range = selection_range()
+            for i = file_range.b, file_range.e do
+                local filename = get_norm_filename(i)
+                assert(filename)
+                vim.fs.rm(dir_path_with(filename), { recursive = true })
+            end
+            render()
+        end)
+
+        vim.api.nvim_input("<Esc>")
+    end, { buffer = buf })
+
+    -- Mark files; the move mode
+    vim.keymap.set({ "n", "v" }, "m", function()
+        mark_files(selection_range(), false)
+        vim.api.nvim_input("<Esc>")
+    end, { buffer = buf })
+
+    -- Mark files; the copy mode
+    vim.api.nvim_create_autocmd("TextYankPost", {
+        buffer = buf,
+        callback = function()
+            local event = vim.api.nvim_get_vvar("event")
+            if event.operator ~= 'y' then return end
+            mark_files(range(vim.fn.getpos("'[")[2], vim.fn.getpos("']")[2]), true)
+        end
+    })
+
+    -- Paste files
+    vim.keymap.set("n", "p", function()
+        if state.marks == nil then return end
+
+        local command
+        if state.marks.copy then
+            command = function(src, dst)
+                vim.fn.system { "cp", "-r", src, dst }
+            end
+        else
+            command = function(src, dst)
+                vim.fn.system { "mv", src, dst }
+            end
+        end
+
+        for _, file_path in pairs(state.marks.file_paths) do
+            command(file_path, vim.b.fe_dir)
+        end
+        state.marks = nil
+
+        render()
+    end, { buffer = buf })
+
+    -- Set CWD to current tab directory
+    vim.keymap.set("n", "i", function()
+        vim.fn.chdir(vim.b.fe_dir)
+        render()
+    end, { buffer = buf })
+
+    -- Set current tab directory to CWD
+    vim.keymap.set("n", ";", function()
+        set_dir(vim.fn.getcwd())
+    end, { buffer = buf })
+
+    -- Toggle verbose mode
+    vim.keymap.set("n", ".", function()
+        state.verbose_mode = not state.verbose_mode
+        render()
+    end, { buffer = buf })
+
+    -- Rerender
+    vim.keymap.set("n", "<C-l>", function() render() end, { buffer = buf })
+end
+
+function get_avail_buf()
+    for i, buf in ipairs(state.buffers) do
+        if not vim.api.nvim_buf_is_loaded(buf) then
+            buf = vim.api.nvim_create_buf(false, false)
+            setup_buf(buf)
+            state.buffers[i] = buf
+            return buf
+        elseif vim.fn.bufwinid(buf) == -1 then
+            return buf
+        end
+    end
+
+    error("Not enough buffers")
+end
 
 function open(path)
     local norm_path = vim.fs.normalize(vim.fs.abspath(path))
@@ -34,69 +215,36 @@ function open(path)
         return
     end
 
-    -- Init tabs
-    state.tabs = {}
-    state.curr_tab_idx = 1
-
     state.verbose_mode = false
-
     state.prev_buf = vim.api.nvim_get_current_buf()
-    vim.api.nvim_win_set_buf(0, state.buf)
-    vim.api.nvim_buf_set_name(state.buf, "[Tab 1]")
-
-    -- Update window config
-    -- local columns = vim.o.columns
-    -- local lines = vim.o.lines - 3 -- exclude 2 bottom lines with mode, buffer name, etc.
-    -- state.win_config.width = math.floor(columns * 0.8)
-    -- state.win_config.height = math.floor(lines * 0.8)
-    -- state.win_config.col = math.floor((columns - state.win_config.width) / 2)
-    -- state.win_config.row = math.floor((lines - state.win_config.height) / 2)
-    -- state.win_config.title = "Tab 1"
-    -- local result = vim.api.nvim_open_win(state.buf, true, state.win_config)
-
-    -- Set directory for current tab
-    set_dir(norm_path)
-
+    vim.api.nvim_win_set_buf(0, get_avail_buf())
+    vim.b.fe_dir = norm_path
     vim.opt_local.cursorline = true
 
     return result
 end
 
-function open_tab(idx)
-    if state.tabs[idx] == nil then
-        state.tabs[idx] = state.tabs[state.curr_tab_idx]
-    end
-
-    vim.api.nvim_buf_set_name(state.buf, "[Tab " .. idx .. "]")
-
-    state.curr_tab_idx = idx
-    render()
-end
-
 function set_dir(path)
-    state.tabs[state.curr_tab_idx] = path
+    vim.b.fe_dir = path
     render()
-end
-
-function get_dir()
-    return state.tabs[state.curr_tab_idx]
 end
 
 function render()
-    local command = { "ls", "--group-directories-first", "-F", get_dir() }
+    local command = { "ls", "--group-directories-first", "-F", vim.b.fe_dir }
     if state.verbose_mode then
         table.insert(command, "-A")
     end
 
     local output = vim.system(command, { text = true }):wait()
     state.files = vim.fn.split(output.stdout, "\n")
-    vim.api.nvim_set_option_value("modifiable", true, { buf = state.buf })
-    vim.api.nvim_buf_set_lines(state.buf, 0, -1, false, state.files)
-    vim.api.nvim_set_option_value("modifiable", false, { buf = state.buf })
+    local buf = vim.api.nvim_get_current_buf()
+    vim.api.nvim_set_option_value("modifiable", true, { buf = buf })
+    vim.api.nvim_buf_set_lines(buf, 0, -1, false, state.files)
+    vim.api.nvim_set_option_value("modifiable", false, { buf = buf })
 end
 
 function dir_path_with(path)
-    return vim.fs.joinpath(get_dir(), path)
+    return vim.fs.joinpath(vim.b.fe_dir, path)
 end
 
 function mark_files(file_range, as_copy)
@@ -130,187 +278,28 @@ vim.g.loaded_netrw = 1
 vim.g.loaded_netrwPlugin = 1
 vim.api.nvim_del_augroup_by_name("FileExplorer");
 
-local group = vim.api.nvim_create_augroup("Fe", { clear = true })
 vim.api.nvim_create_autocmd("BufEnter", {
-    group = group,
+    group = state.augroup,
     callback = function()
         local new_buf = vim.api.nvim_win_get_buf(0)
         local path = vim.api.nvim_buf_get_name(new_buf)
         local stat = vim.uv.fs_stat(path)
         if stat ~= nil and stat.type == "directory" then
             local prev_buf = vim.fn.bufnr("#")
-            if prev_buf ~= -1 and prev_buf == state.buf then
-                vim.api.nvim_set_current_buf(state.buf)
-                local new_tab_path = vim.fs.normalize(vim.fs.abspath(path))
-                set_dir(new_tab_path)
+            local fe_buf_idx = vim.fn.index(state.buffers, prev_buf)
+            if prev_buf ~= -1 and fe_buf_idx ~= -1 then
+                vim.api.nvim_set_current_buf(state.buffers[fe_buf_idx+1])
+                local new_path = vim.fs.normalize(vim.fs.abspath(path))
+                set_dir(new_path)
             else
                 open(path)
+                render()
             end
 
             vim.api.nvim_buf_delete(new_buf, { force = true })
         end
     end
 })
-
-
--- ========================================
--- SETUP BUFFER AND WINDOW CONFIG
--- ========================================
-
-state.buf = vim.api.nvim_create_buf(false, false)
-vim.api.nvim_set_option_value("modifiable", false, { buf = state.buf })
-vim.api.nvim_set_option_value("buftype", "nofile", { buf = state.buf })
-vim.api.nvim_set_option_value("filetype", "netrw", { buf = state.buf })
-
-state.win_config = {
-    relative = "editor",
-    border = "rounded",
-}
-
--- ========================================
--- KEYMAPS INSIDE FE
--- ========================================
-
--- Close fe
-vim.keymap.set("n", "q", function()
-    vim.api.nvim_win_set_buf(0, state.prev_buf)
-end, { buffer = state.buf })
-
--- Cd or open file
-vim.keymap.set("n", "l", function()
-    local filename = state.files[cursor_row()]
-    if filename == nil then return end
-
-    local norm_filename = get_norm_filename(cursor_row())
-    local path = dir_path_with(norm_filename)
-    if filename:sub(-1) == "/" then
-        set_dir(path)
-        vim.api.nvim_win_set_cursor(0, {1, 0})
-    else
-        local cwd = vim.fn.getcwd() .. "/"
-        if path:starts_with(cwd) then
-            path = path:sub(cwd:len()+1, -1)
-        end
-
-        vim.cmd.edit(path)
-    end
-end, { buffer = state.buf })
-
--- Cd back
-vim.keymap.set("n", "h", function()
-    set_dir(vim.fs.dirname(get_dir()))
-    vim.api.nvim_win_set_cursor(0, {1, 0})
-end, { buffer = state.buf })
-
--- Create file
-vim.keymap.set("n", "a", function()
-    vim.ui.input({ prompt = "Create: " }, function(input)
-        if input == nil or input == "" then return end
-
-        if input:sub(-1) == '/' then
-            vim.fn.mkdir(dir_path_with(input), "p")
-        else
-            local new_file = io.open(dir_path_with(input), "w")
-            new_file:close()
-        end
-
-        render()
-    end)
-end, { buffer = state.buf })
-
--- Rename file
-vim.keymap.set("n", "r", function()
-    local filename = get_norm_filename(cursor_row())
-    if filename == nil then return end
-    vim.ui.input({ prompt = "Rename: ", default = filename }, function(input)
-        if input == nil or input == "" then return end
-        vim.fn.rename(dir_path_with(filename), dir_path_with(input))
-        render()
-    end)
-end, { buffer = state.buf })
-
--- Delete files
-vim.keymap.set({ "n", "v" }, "d", function()
-    if #state.files == 0 then return end
-    vim.ui.input({ prompt = "Delete? " }, function(input)
-        if input ~= "y" then return end
-        local file_range = selection_range()
-        for i = file_range.b, file_range.e do
-            local filename = get_norm_filename(i)
-            assert(filename)
-            vim.fs.rm(dir_path_with(filename), { recursive = true })
-        end
-        render()
-    end)
-
-    vim.api.nvim_input("<Esc>")
-end, { buffer = state.buf })
-
--- Mark files; the move mode
-vim.keymap.set({ "n", "v" }, "m", function()
-    mark_files(selection_range(), false)
-    vim.api.nvim_input("<Esc>")
-end, { buffer = state.buf })
-
--- Mark files; the copy mode
-vim.api.nvim_create_autocmd("TextYankPost", {
-    buffer = state.buf,
-    callback = function()
-        local event = vim.api.nvim_get_vvar("event")
-        if event.operator ~= 'y' then return end
-        mark_files(range(vim.fn.getpos("'[")[2], vim.fn.getpos("']")[2]), true)
-    end
-})
-
--- Paste files
-vim.keymap.set("n", "p", function()
-    if state.marks == nil then return end
-
-    local command
-    if state.marks.copy then
-        command = function(src, dst)
-            vim.fn.system { "cp", "-r", src, dst }
-        end
-    else
-        command = function(src, dst)
-            vim.fn.system { "mv", src, dst }
-        end
-    end
-
-    for _, file_path in pairs(state.marks.file_paths) do
-        command(file_path, get_dir())
-    end
-    state.marks = nil
-
-    render()
-end, { buffer = state.buf })
-
--- Set CWD to current tab directory
-vim.keymap.set("n", "i", function()
-    vim.fn.chdir(get_dir())
-    render()
-end, { buffer = state.buf })
-
--- Set current tab directory to CWD
-vim.keymap.set("n", ";", function()
-    set_dir(vim.fn.getcwd())
-end, { buffer = state.buf })
-
--- Toggle verbose mode
-vim.keymap.set("n", ".", function()
-    state.verbose_mode = not state.verbose_mode
-    render()
-end, { buffer = state.buf })
-
--- Rerender
-vim.keymap.set("n", "<C-l>", function() render() end, { buffer = state.buf })
-
--- Open tab
-vim.keymap.set("n", "o1", function() open_tab(1) end, { buffer = state.buf })
-vim.keymap.set("n", "o2", function() open_tab(2) end, { buffer = state.buf })
-vim.keymap.set("n", "o3", function() open_tab(3) end, { buffer = state.buf })
-vim.keymap.set("n", "o4", function() open_tab(4) end, { buffer = state.buf })
-vim.keymap.set("n", "o5", function() open_tab(5) end, { buffer = state.buf })
 
 -- ========================================
 -- KEYMAPS AND COMMANDS OUTSIDE FE
@@ -330,5 +319,3 @@ vim.keymap.set("n", "<leader>p", function()
     local curr_buf_dir = vim.fs.dirname(curr_buf_name)
     open(curr_buf_dir)
 end)
-
--- TODO: Reinit buffer when it is unloaded
