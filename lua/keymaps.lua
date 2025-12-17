@@ -1,3 +1,5 @@
+vim.g.mapleader = " "
+
 vim.keymap.set("i", "<C-c>", "<Esc>")
 
 vim.keymap.set("n", "<leader><leader>x", "<cmd>source %<CR>")

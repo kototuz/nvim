@@ -26,8 +26,9 @@ end
 -- ========================================
 
 local state = {
-    buffers = {-1,-1,-1,-1,-1},
-    augroup = vim.api.nvim_create_augroup("Fe", { clear = true })
+    buffers = {-1,-1,-1},
+    augroup = vim.api.nvim_create_augroup("Fe", { clear = true }),
+    edit_win = -1,
 }
 
 function setup_buf(buf)
@@ -37,13 +38,11 @@ function setup_buf(buf)
 
     function split() 
         vim.cmd.split()
-        open(vim.b.fe_dir)
-        render()
+        open(vim.b.fe_dir, 0)
     end
     function vsplit()
         vim.cmd.vsplit()
-        open(vim.b.fe_dir)
-        render()
+        open(vim.b.fe_dir, 0)
     end
     vim.keymap.set("n", "<C-w>v", vsplit, { buffer = buf })
     vim.keymap.set("n", "<C-w><C-v>", vsplit, { buffer = buf })
@@ -79,6 +78,9 @@ function setup_buf(buf)
                 path = path:sub(cwd:len()+1, -1)
             end
 
+            if vim.api.nvim_win_is_valid(state.edit_win) then
+                vim.api.nvim_set_current_win(state.edit_win)
+            end
             vim.cmd.edit(path)
         end
     end, { buffer = buf })
@@ -208,17 +210,20 @@ function get_avail_buf()
     error("Not enough buffers")
 end
 
-function open(path)
+function open(path, win)
     local norm_path = vim.fs.normalize(vim.fs.abspath(path))
     if vim.uv.fs_stat(norm_path) == nil then
         print("Path does not exist")
         return
     end
 
+    -- state.prev_buf = vim.api.nvim_get_current_buf()
     state.verbose_mode = false
-    state.prev_buf = vim.api.nvim_get_current_buf()
-    vim.api.nvim_win_set_buf(0, get_avail_buf())
-    vim.b.fe_dir = norm_path
+
+    local buf = get_avail_buf()
+    vim.b[buf].fe_dir = norm_path
+    vim.api.nvim_win_set_buf(win, buf)
+    vim.cmd.clearjumps()
     vim.opt_local.cursorline = true
 
     return result
@@ -292,7 +297,7 @@ vim.api.nvim_create_autocmd("BufEnter", {
                 local new_path = vim.fs.normalize(vim.fs.abspath(path))
                 set_dir(new_path)
             else
-                open(path)
+                open(path, 0)
                 render()
             end
 
@@ -317,5 +322,10 @@ end, { nargs = "?", complete = "dir_in_path" })
 vim.keymap.set("n", "<leader>p", function()
     local curr_buf_name = vim.api.nvim_buf_get_name(vim.api.nvim_get_current_buf())
     local curr_buf_dir = vim.fs.dirname(curr_buf_name)
-    open(curr_buf_dir)
+    state.edit_win = vim.api.nvim_get_current_win()
+    open(curr_buf_dir, vim.api.nvim_open_win(0, true, {
+        split = "left",
+        width = 40,
+        win = 0
+    }))
 end)

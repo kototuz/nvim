@@ -11,7 +11,7 @@ local shell_chan_id = vim.fn.jobstart({ "bash" }, {
             vim.fn.chansend(term_chan_id, data)
         end
     end,
-    on_stdout = function(_, data)
+    on_stderr = function(_, data)
         if term_chan_id then
             vim.fn.chansend(term_chan_id, data)
         end
