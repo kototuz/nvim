@@ -21,6 +21,36 @@ function string:starts_with(start)
     return self:sub(1, start:len()) == start
 end
 
+function create_floating_window(opts)
+    opts = opts or {}
+    local width = opts.width or math.floor(vim.o.columns * 0.6)
+    local height = opts.height or math.floor(vim.o.lines * 0.5)
+
+    -- Calculate the position to center the window
+    local col = math.floor((vim.o.columns - width) / 2)
+    local row = 0
+
+    -- Create a buffer
+    local buf = vim.api.nvim_create_buf(false, true) -- No file, scratch buffer
+    vim.api.nvim_set_option_value("bufhidden", "wipe", { buf = buf })
+
+    -- Define window configuration
+    local win_config = {
+        relative = "editor",
+        width = width,
+        height = height,
+        col = col,
+        row = row,
+        style = "minimal", -- No borders or extra UI elements
+        border = "rounded",
+    }
+
+    -- Create the floating window
+    local win = vim.api.nvim_open_win(buf, true, win_config)
+
+    return { buf = buf, win = win }
+end
+
 -- ========================================
 -- FE API
 -- ========================================
@@ -58,9 +88,9 @@ function setup_buf(buf)
     })
 
     -- Close fe
-    vim.keymap.set("n", "q", function()
-        vim.api.nvim_win_set_buf(0, state.prev_buf)
-    end, { buffer = buf })
+    -- vim.keymap.set("n", "q", function()
+    --     vim.api.nvim_win_set_buf(0, state.prev_buf)
+    -- end, { buffer = buf })
 
     -- Cd or open file
     vim.keymap.set("n", "l", function()
@@ -117,6 +147,34 @@ function setup_buf(buf)
             render()
         end)
     end, { buffer = buf })
+
+    -- Bulkrename like in `ranger`
+    vim.keymap.set("v", "r", function()
+        local fe_buf = vim.api.nvim_get_current_buf()
+        local range = selection_range()
+        local files_to_rename = vim.api.nvim_buf_get_lines(0, range.b-1, range.e, true)
+        local floating = create_floating_window()
+        vim.api.nvim_buf_set_lines(floating.buf, 0, -1, true, files_to_rename)
+        
+        local function rename()
+            local new_names = vim.api.nvim_buf_get_lines(floating.buf, 0, -1, true)
+            if #new_names ~= #files_to_rename then
+                print("ERROR: Different file count")
+                return
+            end
+
+            for i = 1, #new_names do
+                local old_path = vim.fs.joinpath(vim.b[fe_buf].fe_dir, files_to_rename[i])
+                local new_path = vim.fs.joinpath(vim.b[fe_buf].fe_dir, new_names[i])
+                assert(vim.fn.rename(old_path, new_path) == 0)
+            end
+
+            vim.api.nvim_win_close(floating.win, false)
+        end
+
+        vim.keymap.set("n", "<C-w>q", rename, { buffer = floating.buf })
+        vim.keymap.set("n", "<C-w><C-q>", rename, { buffer = floating.buf })
+    end)
 
     -- Delete files
     vim.keymap.set({ "n", "v" }, "d", function()
