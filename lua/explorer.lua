@@ -33,6 +33,8 @@ end
 function explorer.setup(opts)
     opts = opts or {}
 
+    explorer.ls_opts = opts.ls_opts or { "-h", "--group-directories-first" }
+
     explorer.augroup = vim.api.nvim_create_augroup("Fe", { clear = true })
     explorer.ns = vim.api.nvim_create_namespace("explorer")
     vim.api.nvim_set_hl(0, "ExplorerDir", { default = true, link = "Directory" })
@@ -227,7 +229,7 @@ function explorer.set_explore_mode(buf)
 end
 
 function explorer.set_edit_mode(buf)
-    local cmd = { "ls", "-1", vim.b[buf].explorer_dir }
+    local cmd = vim.fn.extend({ "ls", "-1", vim.b[buf].explorer_dir }, explorer.ls_opts)
     if explorer.verbose_mode then table.insert(cmd, "-A") end
     local res = vim.system(cmd, { text = true }):wait()
     if res.code ~= 0 then
@@ -312,7 +314,7 @@ function explorer.set_dir(path)
 end
 
 function explorer.render()
-    local cmd = { "ls", "-lhD", "--group-directories-first", vim.b.explorer_dir }
+    local cmd = vim.fn.extend({ "ls", "-l", "--dired", vim.b.explorer_dir }, explorer.ls_opts)
     if explorer.verbose_mode then
         table.insert(cmd, "-A")
     end
