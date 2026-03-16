@@ -14,6 +14,7 @@ if not (vim.uv or vim.loop).fs_stat(lazypath) then
 end
 vim.opt.rtp:prepend(lazypath)
 
+require("opts")
 require("keymaps")
 
 require("lazy").setup(
@@ -21,8 +22,8 @@ require("lazy").setup(
     { change_detection = { notify = false } }
 )
 
-require("opts")
-require("terminal")
-require("fe")
-require("sh")
--- require("buf2")
+require("shell").setup({
+    telescope_opts = require("telescope.themes").get_dropdown{}
+})
+
+require("explorer").setup()

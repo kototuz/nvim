@@ -1,8 +1,10 @@
 vim.opt.guicursor = "n-v-sm:block,i-ve-t-c-ci:ver25,r-cr-o:hor20"
+vim.opt.showmode = false
 vim.opt.inccommand = "split"
 vim.opt.hls = false
 vim.opt.smartcase = true
 vim.opt.incsearch = true
+vim.opt.ignorecase = true
 vim.opt.gdefault = true
 vim.opt.number = true
 vim.opt.rnu = true

@@ -1,6 +1,8 @@
 vim.g.mapleader = " "
 
-vim.keymap.set("i", "<C-c>", "<Esc>")
+vim.opt.cedit = "<C-g>"
+
+vim.keymap.set({ "i", "n", "v" }, "<C-c>", "<Esc>")
 
 vim.keymap.set("n", "<leader><leader>x", "<cmd>source %<CR>")
 vim.keymap.set("n", "<leader>x", ":.lua<CR>")
@@ -37,11 +39,8 @@ vim.keymap.set("n", "<C-w><C-d>", "<C-w>-")
 vim.keymap.set("n", "<C-w>t", ":tab split<CR>")
 vim.keymap.set("n", "<C-w><C-t>", ":tab split<CR>")
 
--- vim.keymap.set("n", "<leader>1", ":tabn 1<CR>")
--- vim.keymap.set("n", "<leader>2", ":tabn 2<CR>")
--- vim.keymap.set("n", "<leader>3", ":tabn 3<CR>")
--- vim.keymap.set("n", "<leader>4", ":tabn 4<CR>")
--- vim.keymap.set("n", "<leader>5", ":tabn 5<CR>")
+vim.keymap.set("t", "<C-x>", "<C-c>")
+vim.keymap.set("t", "<C-c>", "<c-\\><c-n>")
 
 vim.keymap.set("n", "<leader>r", function()
     local word = vim.fn.expand("<cword>")
