@@ -224,6 +224,17 @@ function filemanager.set_explore_mode(buf)
         end)
     end, { buffer = buf })
 
+    -- Run shell commands
+    vim.keymap.set("n", "<leader>;", function()
+        shell.input({ cwd = vim.b.filemanager_dir })
+    end, { buffer = buf })
+    vim.keymap.set("n", "<leader>l", function()
+        shell.run_last_or_input(vim.b.filemanager_dir)
+    end, { buffer = buf })
+    vim.keymap.set("n", "<leader>h", function()
+        shell.search_history(vim.b.filemanager_dir)
+    end, { buffer = buf })
+
     -- Rerender
     vim.keymap.set("n", "<C-l>", function() filemanager.render() end, { buffer = buf })
 end

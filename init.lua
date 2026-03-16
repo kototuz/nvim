@@ -22,7 +22,8 @@ require("lazy").setup(
     { change_detection = { notify = false } }
 )
 
-require("shell").setup({
+shell = require("shell")
+shell.setup({
     telescope_opts = require("telescope.themes").get_dropdown{}
 })
 

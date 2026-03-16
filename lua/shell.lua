@@ -72,7 +72,7 @@ function shell.run(cmd, cwd)
         end
     })
 
-    vim.api.nvim_chan_send(shell.chan_id, cwd or vim.fn.getcwd() .. "\n" .. cmd .. "\n")
+    vim.api.nvim_chan_send(shell.chan_id, (cwd or vim.fn.getcwd()) .. "\n" .. cmd .. "\n")
     vim.api.nvim_buf_call(shell.output_bufnr, function()
         vim.cmd.normal("G")
     end)
@@ -90,9 +90,9 @@ endfunction
 
 function shell.run_last_or_input(cwd)
     if shell.last_cmd == nil then
-        shell.input(nil, cwd)
+        shell.input({ cwd = cwd })
     else
-        shell.run(shell.last_cmd)
+        shell.run(shell.last_cmd, cwd)
     end
 end
 
@@ -112,11 +112,12 @@ function shell.history()
     return vim.fn.slice(vim.fn.reverse(history), 0, shell.history_len)
 end
 
-function shell.input(default, cwd)
-    vim.ui.input({ prompt = "sh: ", default = default or "", completion=("customlist,%s"):format("CompileInputComplete") }, function(new_cmd)
+function shell.input(opts)
+    opts = opts or {}
+    vim.ui.input({ prompt = "sh: ", default = opts.default or "", completion=("customlist,%s"):format("CompileInputComplete") }, function(new_cmd)
         if new_cmd == nil or new_cmd == "" then return end
         shell.last_cmd = new_cmd
-        shell.run(new_cmd, cwd)
+        shell.run(new_cmd, opts.cwd)
     end)
 end
 
@@ -138,7 +139,7 @@ function shell.scroll_output_down()
     end
 end
 
-function shell.search_history()
+function shell.search_history(cwd)
     local opts = shell.telescope_opts or {}
     pickers.new(opts, {
         prompt_title = "history",
@@ -148,7 +149,7 @@ function shell.search_history()
             actions.select_default:replace(function()
                 actions.close(promp_bufnr)
                 local selection = action_state.get_selected_entry()[1]
-                shell.input(selection)
+                shell.input({ default = selection, cwd = cwd })
             end)
 
             return true
