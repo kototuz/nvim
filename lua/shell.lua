@@ -37,15 +37,6 @@ function shell.setup(opts)
             end
         end,
     })
-
-    vim.api.nvim_create_autocmd("DirChanged", {
-        group = vim.api.nvim_create_augroup("Sh", { clear = true }),
-        callback = function()
-            shell.output_chan_id = nil
-            local event = vim.api.nvim_get_vvar("event")
-            vim.api.nvim_chan_send(shell.chan_id, "cd " .. event.cwd .. "\n")
-        end
-    })
 end
 
 function shell.open_output_win()
@@ -63,7 +54,7 @@ function shell.open_output_win()
     end
 end
 
-function shell.run(cmd)
+function shell.run(cmd, cwd)
     if not vim.api.nvim_buf_is_loaded(shell.output_bufnr) then
         shell.output_bufnr = vim.api.nvim_create_buf(false, true)
     end
@@ -81,7 +72,7 @@ function shell.run(cmd)
         end
     })
 
-    vim.api.nvim_chan_send(shell.chan_id, cmd .. "\n")
+    vim.api.nvim_chan_send(shell.chan_id, cwd or vim.fn.getcwd() .. "\n" .. cmd .. "\n")
     vim.api.nvim_buf_call(shell.output_bufnr, function()
         vim.cmd.normal("G")
     end)
@@ -97,9 +88,9 @@ function! CompileInputComplete(ArgLead, CmdLine, CursorPos)
 endfunction
 ]])
 
-function shell.run_last_or_input()
+function shell.run_last_or_input(cwd)
     if shell.last_cmd == nil then
-        shell.input()
+        shell.input(nil, cwd)
     else
         shell.run(shell.last_cmd)
     end
@@ -121,11 +112,11 @@ function shell.history()
     return vim.fn.slice(vim.fn.reverse(history), 0, shell.history_len)
 end
 
-function shell.input(default)
+function shell.input(default, cwd)
     vim.ui.input({ prompt = "sh: ", default = default or "", completion=("customlist,%s"):format("CompileInputComplete") }, function(new_cmd)
         if new_cmd == nil or new_cmd == "" then return end
         shell.last_cmd = new_cmd
-        shell.run(new_cmd)
+        shell.run(new_cmd, cwd)
     end)
 end
 
