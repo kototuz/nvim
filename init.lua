@@ -26,4 +26,4 @@ require("shell").setup({
     telescope_opts = require("telescope.themes").get_dropdown{}
 })
 
-require("explorer").setup()
+require("filemanager").setup()
