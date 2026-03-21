@@ -8,7 +8,7 @@ trap kill_child SIGINT SIGTERM
 while true; do
     read -s cwd
     read -s cmd
-    cd $cwd
+    cd "$cwd"
     script -q -e -E always -c "$cmd" /dev/null
     echo -e "\n[Process exited $?]"
 done

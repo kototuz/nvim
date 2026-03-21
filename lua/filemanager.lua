@@ -235,6 +235,17 @@ function filemanager.set_explore_mode(buf)
         shell.search_history(vim.b.filemanager_dir)
     end, { buffer = buf })
 
+    -- Run shell commands on selected entries
+    vim.keymap.set("v", "<leader>;", function()
+        local s = ""
+        for entry in filemanager.selected_entries('v', '.') do
+            s = s .. " " .. entry.name
+        end
+
+        vim.cmd.normal("")
+        shell.input({ cwd = vim.b.filemanager_dir, cmd_suffix = s })
+    end)
+
     -- Rerender
     vim.keymap.set("n", "<C-l>", function() filemanager.render() end, { buffer = buf })
 end

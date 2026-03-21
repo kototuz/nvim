@@ -116,6 +116,10 @@ function shell.input(opts)
     opts = opts or {}
     vim.ui.input({ prompt = "sh: ", default = opts.default or "", completion=("customlist,%s"):format("CompileInputComplete") }, function(new_cmd)
         if new_cmd == nil or new_cmd == "" then return end
+        if opts.cmd_suffix then
+            new_cmd = new_cmd .. opts.cmd_suffix
+        end
+
         shell.last_cmd = new_cmd
         shell.run(new_cmd, opts.cwd)
     end)

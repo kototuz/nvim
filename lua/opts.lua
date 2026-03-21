@@ -1,4 +1,4 @@
-vim.opt.guicursor = "n-v-sm:block,i-ve-t-c-ci:ver25,r-cr-o:hor20"
+vim.opt.guicursor = "a:block"
 vim.opt.showmode = false
 vim.opt.inccommand = "split"
 vim.opt.hls = false
