@@ -100,11 +100,13 @@ function shell.history()
     local history = vim.api.nvim_cmd({ cmd = "history", args = {"input"} }, { output = true })
     history = vim.fn.split(history, '\n')
 
-    local prefix_end = 4
-    local last_entry = history[#history]
-    while last_entry:sub(prefix_end, prefix_end) ~= ' ' do prefix_end = prefix_end + 1 end
-    prefix_end = prefix_end + 2
+    local last_entry = history[#history];
+    assert(last_entry:sub(1, 1) == '>')
+    last_entry = vim.fn.trim(last_entry:sub(2), " ", 1)
+    last_entry = last_entry:sub(vim.fn.stridx(last_entry, " ") + 1)
+    last_entry = last_entry:sub(4)
 
+    local prefix_end = vim.fn.strlen(history[#history]) - vim.fn.strlen(last_entry)
     for i, entry in ipairs(history) do
         history[i] = entry:sub(prefix_end)
     end
