@@ -21,10 +21,3 @@ require("lazy").setup(
     { import = "plugins" },
     { change_detection = { notify = false } }
 )
-
-shell = require("shell")
-shell.setup({
-    telescope_opts = require("telescope.themes").get_dropdown{}
-})
-
-require("filemanager").setup()
