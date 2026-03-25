@@ -64,6 +64,8 @@ function shell.run(cmd, cwd)
     -- Run command
     vim.api.nvim_set_option_value("modifiable", true, { buf = shell.output_bufnr })
     vim.api.nvim_buf_set_lines(shell.output_bufnr, 0, -1, false, {})
+
+    if shell.output_chan_id ~= nil then vim.fn.chanclose(shell.output_chan_id) end
     shell.output_chan_id = vim.api.nvim_open_term(shell.output_bufnr, {
         on_input = function(_, _, _, data)
             if data == "" or data == "" then
@@ -164,3 +166,6 @@ function shell.search_history(cwd)
 end
 
 return shell
+
+-- TODO: Implement restart command to fix broken shell
+-- TODO: Implement preview of files like in oil
