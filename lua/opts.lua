@@ -24,6 +24,7 @@ vim.opt.wrap = false
 vim.opt.list = true
 vim.opt.listchars = { tab = "» ", lead = "⸱", trail = "⸱" }
 vim.opt.laststatus = 3
+vim.opt.termguicolors = true
 
 vim.g.c_no_curly_error = true
 

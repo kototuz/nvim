@@ -42,6 +42,11 @@ vim.keymap.set("n", "<C-w><C-t>", ":tab split<CR>")
 vim.keymap.set("t", "<C-x>", "<C-c>")
 vim.keymap.set("t", "<C-c>", "<c-\\><c-n>")
 
+local ts = require("telescope.builtin")
+vim.keymap.set('n', '<leader>f', ts.find_files, {})
+vim.keymap.set('n', '<leader>/', ts.live_grep, {})
+vim.keymap.set('n', '<leader>b', ts.buffers, {})
+
 vim.keymap.set("n", "<leader>r", function()
     local word = vim.fn.expand("<cword>")
     vim.ui.input({ prompt = "Replace: ", default = word }, function(input)
